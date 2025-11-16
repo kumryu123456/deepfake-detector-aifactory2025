@@ -1,8 +1,23 @@
 """Training components including losses, metrics, and trainer."""
 
-# Training modules will be imported here as they are implemented
-# from .trainer import Trainer
-# from .losses import CombinedLoss
-# from .metrics import MetricsCalculator
+from .losses import (
+    CombinedLoss,
+    FocalLoss,
+    SoftF1Loss,
+    create_loss_function,
+)
+from .metrics import MetricsCalculator
+from .trainer import EarlyStopping, Trainer
 
-__all__ = []
+__all__ = [
+    # Trainer
+    "Trainer",
+    "EarlyStopping",
+    # Losses
+    "CombinedLoss",
+    "FocalLoss",
+    "SoftF1Loss",
+    "create_loss_function",
+    # Metrics
+    "MetricsCalculator",
+]
