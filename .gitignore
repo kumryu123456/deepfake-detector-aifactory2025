@@ -1,7 +1,7 @@
 # Data directories (large files)
-data/
-checkpoints/
-logs/
+/data/
+/checkpoints/
+/logs/
 
 # Python
 __pycache__/
