@@ -1,0 +1,93 @@
+# Inference Configuration
+# Settings for model inference and submission generation
+
+inference:
+  # Device Configuration
+  device: "cuda"  # Options: "cuda", "cpu"
+  use_fp16: true  # Mixed precision for 2x speedup
+
+  # Batch Processing
+  batch_size: 64  # For image inference
+  video_batch_size: 16  # For video frame processing
+  num_workers: 8
+  pin_memory: true
+
+  # Video Processing
+  video:
+    target_frames: 16  # Number of frames to extract per video
+    sampling_method: "uniform"  # Options: "uniform", "random", "adaptive"
+    min_frames: 8
+    max_frames: 32
+
+    # Frame aggregation method for video-level prediction
+    aggregation: "average_logits"  # Options: "average_logits", "max_confidence", "majority_vote"
+
+    # Early stopping (optional optimization)
+    early_stopping:
+      enabled: false
+      confidence_threshold: 0.95  # Stop processing if confidence > threshold
+
+# Face Detection Configuration
+face_detection:
+  detector: "mtcnn"  # Options: "mtcnn", "retinaface", "mediapipe"
+  confidence_threshold: 0.9
+  margin_ratio: 0.3  # Add 30% margin around detected face
+  min_face_size: 80
+
+  # Fallback strategy if no face detected
+  fallback: "center_crop"  # Options: "center_crop", "skip", "error"
+
+# Preprocessing
+preprocessing:
+  resize: [224, 224]
+  normalization:
+    mean: [0.485, 0.456, 0.406]
+    std: [0.229, 0.224, 0.225]
+
+# Output Configuration
+output:
+  format: "csv"
+  filename: "submission.csv"
+  columns: ["filename", "label"]
+
+  # Label encoding
+  labels:
+    real: 0
+    fake: 1
+
+# Performance Optimization
+optimization:
+  # Torch compilation (PyTorch 2.0+)
+  compile_model: false  # Set to true if using PyTorch 2.0+
+
+  # Prefetching
+  prefetch_factor: 2
+
+  # Memory optimization
+  clear_cache_every: 100  # Clear CUDA cache every N batches
+
+  # Progress display
+  show_progress: true
+  progress_bar: true
+
+# Error Handling
+error_handling:
+  # What to do on face detection failure
+  on_face_detection_error: "use_fallback"  # Options: "use_fallback", "skip", "raise"
+
+  # What to do on inference error
+  on_inference_error: "log_and_skip"  # Options: "log_and_skip", "raise"
+
+  # What to do on OOM error
+  on_oom_error: "reduce_batch_size"  # Options: "reduce_batch_size", "raise"
+  min_batch_size: 8  # Minimum batch size before raising error
+
+# Reproducibility
+seed: 42
+deterministic: true
+
+# Logging
+logging:
+  level: "INFO"  # Options: "DEBUG", "INFO", "WARNING", "ERROR"
+  log_file: "./logs/inference.log"
+  console_output: true
