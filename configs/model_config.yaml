@@ -1,54 +1,54 @@
 # Model Architecture Configuration
-# Dual-branch hybrid architecture with spatial and frequency branches
+# Deepfake Detection - Dual-Branch Hybrid Model
 
 model:
-  architecture: "dual_branch_hybrid"
-  num_classes: 2  # Binary classification: Real (0) or Fake (1)
-
-  # Spatial Branch: EfficientNet-B4 + Vision Transformer
-  spatial_branch:
-    backbone: "efficientnet_b4"
-    pretrained: true
-    freeze_backbone: false  # Set to true for initial warmup, false for full training
-
-    # Vision Transformer Encoder
-    transformer:
-      num_layers: 4
-      num_heads: 8
-      hidden_dim: 512
-      mlp_dim: 2048
-      dropout: 0.1
-
-    output_dim: 512
-
-  # Frequency Branch: FFT/DCT Analysis
-  frequency_branch:
-    method: "fft"  # Options: "fft" or "dct"
-
-    # Convolutional layers in frequency domain
-    conv_channels: [64, 128, 256]
-    kernel_sizes: [3, 3, 3]
-
-    output_dim: 512
-
-  # Fusion Layer: Combine spatial + frequency features
-  fusion:
-    input_dim: 1024  # 512 (spatial) + 512 (frequency)
-    attention_heads: 4
-    attention_dim: 256
+  name: "deepfake_detector"
+  type: "dual_branch"
+  num_classes: 2  # Binary classification: Real (0), Fake (1)
+  
+spatial_branch:
+  backbone: "efficientnet_b4"
+  pretrained: true
+  pretrained_source: "imagenet"
+  transformer:
+    num_layers: 4
+    num_heads: 8
     hidden_dim: 512
-    dropout: 0.3
+    mlp_dim: 2048
+    dropout: 0.1
+  output_dim: 512
+  dropout: 0.3
 
-  # Classification Head
-  classifier:
-    hidden_dims: [256]  # Can add more layers: [512, 256]
-    dropout: 0.5
-    activation: "relu"
+frequency_branch:
+  method: "fft"  # Options: fft, dct
+  components: ["amplitude", "phase"]
+  input_size: [224, 224]
+  conv_channels: [64, 128, 256]
+  output_dim: 512
+  dropout: 0.2
 
-# Input Configuration
+fusion_layer:
+  input_dim: 1024  # 512 (spatial) + 512 (frequency)
+  fusion_strategy: "hierarchical"  # Options: late_fusion, hierarchical
+  attention_heads: 4
+  attention_dim: 256
+  output_dim: 512
+  dropout: 0.5
+
+classifier:
+  hidden_dims: [256]
+  dropout: 0.5
+  activation: "relu"
+
+# Input preprocessing
 input:
-  image_size: [224, 224]  # Height, Width
-  channels: 3  # RGB
+  image_size: [224, 224]
   normalization:
     mean: [0.485, 0.456, 0.406]  # ImageNet stats
     std: [0.229, 0.224, 0.225]
+  
+# Video processing
+video:
+  target_frames: 16
+  sampling_method: "uniform"  # Options: uniform, random, adaptive
+  aggregation_method: "average_logits"  # Options: average_logits, max_confidence, majority_vote

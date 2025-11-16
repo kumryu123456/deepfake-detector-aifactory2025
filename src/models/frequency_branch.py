@@ -27,9 +27,11 @@ class FrequencyBranch(nn.Module):
     def __init__(
         self,
         method: str = "fft",
-        conv_channels: list = [64, 128, 256],
-        kernel_sizes: list = [3, 3, 3],
+        conv_channels: list = None,
+        kernel_sizes: list = None,
         output_dim: int = 512,
+        pool_size: tuple = (7, 7),
+        dropout: float = 0.3,
     ):
         """Initialize frequency branch.
 
@@ -38,8 +40,23 @@ class FrequencyBranch(nn.Module):
             conv_channels: List of channel dimensions for conv layers
             kernel_sizes: List of kernel sizes for conv layers
             output_dim: Output feature dimension
+            pool_size: Adaptive pooling size (default: (7, 7))
+            dropout: Dropout rate (default: 0.3)
         """
         super().__init__()
+
+        # Handle mutable default arguments
+        if conv_channels is None:
+            conv_channels = [64, 128, 256]
+        if kernel_sizes is None:
+            kernel_sizes = [3, 3, 3]
+
+        # Validate that conv_channels and kernel_sizes have equal length
+        if len(conv_channels) != len(kernel_sizes):
+            raise ValueError(
+                f"conv_channels and kernel_sizes must have the same length, "
+                f"got {len(conv_channels)} and {len(kernel_sizes)}"
+            )
 
         self.method = method.lower()
         self.output_dim = output_dim
@@ -72,18 +89,18 @@ class FrequencyBranch(nn.Module):
         self.conv_layers = nn.Sequential(*conv_layers)
 
         # Adaptive pooling to fixed size
-        self.adaptive_pool = nn.AdaptiveAvgPool2d((7, 7))
+        self.adaptive_pool = nn.AdaptiveAvgPool2d(pool_size)
 
         # Calculate flattened dimension after pooling
-        # Last conv channel × 7 × 7
-        flatten_dim = conv_channels[-1] * 7 * 7
+        # Last conv channel × pool_size[0] × pool_size[1]
+        flatten_dim = conv_channels[-1] * pool_size[0] * pool_size[1]
 
         # Fully connected layers
         self.fc_layers = nn.Sequential(
             nn.Flatten(),
             nn.Linear(flatten_dim, output_dim),
             nn.ReLU(),
-            nn.Dropout(0.3),
+            nn.Dropout(dropout),
         )
 
     def compute_frequency_transform(
@@ -102,6 +119,11 @@ class FrequencyBranch(nn.Module):
             return self._compute_fft(x)
         elif self.method == "dct":
             return self._compute_dct(x)
+        else:
+            raise ValueError(
+                f"Invalid frequency transform method: '{self.method}'. "
+                f"Expected 'fft' or 'dct'."
+            )
 
     def _compute_fft(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Compute 2D FFT.

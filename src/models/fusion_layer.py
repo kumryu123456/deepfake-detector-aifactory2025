@@ -6,6 +6,7 @@ features from spatial and frequency branches.
 
 import torch
 import torch.nn as nn
+from typing import Tuple
 
 
 class FusionLayer(nn.Module):
@@ -83,8 +84,6 @@ class FusionLayer(nn.Module):
         Returns:
             Fused features, shape (batch_size, input_dim)
         """
-        batch_size = spatial_features.shape[0]
-
         # Concatenate spatial and frequency features
         # (B, 512) + (B, 512) → (B, 1024)
         combined_features = torch.cat([spatial_features, frequency_features], dim=1)
@@ -123,8 +122,6 @@ class FusionLayer(nn.Module):
         Returns:
             Attention weights, shape (batch_size, 1, 1)
         """
-        batch_size = spatial_features.shape[0]
-
         # Concatenate features
         combined_features = torch.cat([spatial_features, frequency_features], dim=1)
         features = combined_features.unsqueeze(1)

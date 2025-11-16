@@ -1,142 +1,95 @@
 # Training Configuration
-# Hyperparameters for model training with Macro F1-score optimization
+# Deepfake Detection Model Training
 
 training:
-  # Training Schedule
   epochs: 100
   batch_size: 32
   num_workers: 8
   pin_memory: true
+  mixed_precision: true  # FP16 training for speed
+  
+optimizer:
+  type: "adamw"
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
 
-  # Optimizer
-  optimizer:
-    type: "adamw"
-    learning_rate: 0.0001  # 1e-4
-    weight_decay: 0.01
-    betas: [0.9, 0.999]
-    eps: 1.0e-8
+scheduler:
+  type: "cosine_annealing"
+  T_max: 100  # Same as epochs
+  eta_min: 1.0e-6
+  warmup_epochs: 5
+  warmup_start_lr: 1.0e-5
 
-  # Learning Rate Scheduler
-  scheduler:
-    type: "cosine_annealing"
-    T_max: 95  # epochs - warmup_epochs
-    eta_min: 1.0e-6
-
-  # Warmup Phase
-  warmup:
+# Loss function configuration
+loss:
+  type: "combined"
+  weights:
+    cross_entropy: 0.5
+    focal: 0.3
+    soft_f1: 0.2
+  focal:
+    gamma: 2.0
+    alpha: 0.25
+  # Fine-tuning schedule (increase F1 weight in later epochs)
+  finetuning:
     enabled: true
-    epochs: 5
-    warmup_lr: 1.0e-5
-    freeze_backbone: true  # Freeze spatial backbone during warmup
-
-  # Loss Function
-  loss:
-    type: "combined"
+    start_epoch: 80
     weights:
-      cross_entropy: 0.5
-      focal: 0.3
-      macro_f1: 0.2
+      cross_entropy: 0.4
+      focal: 0.2
+      soft_f1: 0.4
 
-    # Focal Loss parameters
-    focal:
-      gamma: 2.0
-      alpha: 0.25
+# Data augmentation
+augmentation:
+  enabled: true
+  horizontal_flip: 0.5
+  rotation: 15  # degrees
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+  jpeg_compression:
+    quality_lower: 60
+    quality_upper: 100
+    p: 0.5
+  gaussian_noise:
+    var_limit: [0.01, 0.05]
+    p: 0.1
+  gaussian_blur:
+    blur_limit: [3, 7]
+    p: 0.05
 
-  # Early Stopping
-  early_stopping:
-    enabled: true
-    patience: 15  # Stop if no improvement for 15 epochs
-    monitor: "val_macro_f1"  # Metric to monitor
-    mode: "max"  # Maximize Macro F1
-    min_delta: 0.001
-
-# Data Configuration
-data:
-  # Dataset paths and weights for multi-dataset training
-  datasets:
-    - name: "faceforensics"
-      path: "./data/faceforensics"
-      weight: 0.3
-      enabled: true
-
-    - name: "dfdc"
-      path: "./data/dfdc"
-      weight: 0.5
-      enabled: false  # Enable when dataset is downloaded
-
-    - name: "celebdf"
-      path: "./data/celebdf"
-      weight: 0.2
-      enabled: false  # Enable when dataset is downloaded
-
-  # Data splits
+# Dataset configuration
+dataset:
+  datasets: ["faceforensics", "dfdc", "celebdf"]
+  sampling_strategy: "balanced"  # Equal sampling from each dataset
   train_split: 0.8
-  val_split: 0.1
-  test_split: 0.1
+  val_split: 0.2
+  random_seed: 42
 
-  # Sampling strategy
-  sampling: "balanced"  # Ensure equal Real/Fake per batch
-
-  # Data Augmentation (for training only)
-  augmentation:
-    enabled: true
-    resize: [256, 256]  # Resize before crop
-    random_crop: [224, 224]
-
-    horizontal_flip: 0.5
-    rotation_degrees: 15
-
-    color_jitter:
-      brightness: 0.2
-      contrast: 0.2
-      saturation: 0.2
-      hue: 0.1
-      p: 0.5
-
-    gaussian_blur:
-      kernel_size: 5
-      p: 0.05
-
-    gaussian_noise:
-      sigma: 0.05
-      p: 0.1
-
-    jpeg_compression:
-      quality_range: [60, 100]
-      p: 0.5
-
-# Validation Configuration
-validation:
-  # Validation frequency
-  eval_every: 1  # Evaluate every N epochs
-
-  # Cross-dataset validation
-  cross_dataset:
-    enabled: false  # Enable for final model training
-    train_datasets: ["faceforensics", "dfdc"]
-    val_dataset: "celebdf"
-
-# Checkpoint Configuration
-checkpoint:
-  save_dir: "./checkpoints"
-  save_best_only: false  # Save all checkpoints or only best
-  monitor: "val_macro_f1"
+# Early stopping
+early_stopping:
+  enabled: true
+  patience: 15
+  metric: "macro_f1"  # Monitor Macro F1-score (not accuracy)
   mode: "max"
 
-  # Checkpoint naming
-  filename_format: "model_{backbone}_{dataset}_f1_{val_macro_f1:.4f}_epoch{epoch:03d}.pth"
+# Checkpointing
+checkpoint:
+  save_dir: "checkpoints"
+  save_best_only: true
+  metric: "macro_f1"
+  mode: "max"
+  save_frequency: 5  # Save every 5 epochs as backup
 
-# Logging Configuration
+# Logging
 logging:
-  log_dir: "./logs"
-  log_every: 10  # Log every N batches
-
-  # TensorBoard
-  tensorboard:
-    enabled: true
-    log_dir: "./logs/tensorboard"
-
-  # Metrics to track
+  log_dir: "logs"
+  tensorboard: true
+  log_interval: 100  # Log every 100 batches
   metrics:
     - "loss"
     - "accuracy"
@@ -145,10 +98,7 @@ logging:
     - "precision_fake"
     - "recall_real"
     - "recall_fake"
-    - "f1_real"
-    - "f1_fake"
 
 # Reproducibility
 seed: 42
 deterministic: true
-benchmark: false  # Set to true for faster training on fixed input size

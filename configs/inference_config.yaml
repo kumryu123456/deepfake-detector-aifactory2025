@@ -1,93 +1,67 @@
 # Inference Configuration
-# Settings for model inference and submission generation
+# Competition Submission Settings
 
 inference:
-  # Device Configuration
-  device: "cuda"  # Options: "cuda", "cpu"
-  use_fp16: true  # Mixed precision for 2x speedup
-
-  # Batch Processing
-  batch_size: 64  # For image inference
-  video_batch_size: 16  # For video frame processing
+  batch_size: 64  # Larger batch for faster inference
   num_workers: 8
-  pin_memory: true
+  device: "cuda"  # Will auto-fallback to cpu if unavailable
+  mixed_precision: true  # FP16 for 2x speedup
+  
+# Model loading
+model:
+  checkpoint_path: "checkpoints/hybrid_finetuned.pth"
+  config_path: "configs/model_config.yaml"
 
-  # Video Processing
-  video:
-    target_frames: 16  # Number of frames to extract per video
-    sampling_method: "uniform"  # Options: "uniform", "random", "adaptive"
-    min_frames: 8
-    max_frames: 32
+# Input data
+data:
+  test_dir: "./data"  # Competition test data directory
+  supported_formats:
+    images: [".jpg", ".png", ".JPG", ".PNG"]
+    videos: [".mp4", ".MP4"]
 
-    # Frame aggregation method for video-level prediction
-    aggregation: "average_logits"  # Options: "average_logits", "max_confidence", "majority_vote"
+# Video processing
+video:
+  target_frames: 16
+  sampling_method: "uniform"
+  min_frames: 8
+  max_frames: 32
+  aggregation_method: "average_logits"
+  confidence_threshold: null  # Set to enable early stopping (e.g., 0.95)
 
-    # Early stopping (optional optimization)
-    early_stopping:
-      enabled: false
-      confidence_threshold: 0.95  # Stop processing if confidence > threshold
-
-# Face Detection Configuration
+# Face detection
 face_detection:
-  detector: "mtcnn"  # Options: "mtcnn", "retinaface", "mediapipe"
+  detector: "retinaface"  # Options: retinaface, mtcnn
   confidence_threshold: 0.9
-  margin_ratio: 0.3  # Add 30% margin around detected face
-  min_face_size: 80
+  margin_ratio: 0.3
+  fallback_on_no_face: true  # Process whole image if no face detected
 
-  # Fallback strategy if no face detected
-  fallback: "center_crop"  # Options: "center_crop", "skip", "error"
-
-# Preprocessing
-preprocessing:
-  resize: [224, 224]
-  normalization:
-    mean: [0.485, 0.456, 0.406]
-    std: [0.229, 0.224, 0.225]
-
-# Output Configuration
+# Output
 output:
-  format: "csv"
-  filename: "submission.csv"
-  columns: ["filename", "label"]
-
-  # Label encoding
-  labels:
-    real: 0
-    fake: 1
-
-# Performance Optimization
+  csv_path: "submission.csv"
+  validate: true  # Run validation checks on output CSV
+  
+# Performance optimization
 optimization:
-  # Torch compilation (PyTorch 2.0+)
-  compile_model: false  # Set to true if using PyTorch 2.0+
-
-  # Prefetching
-  prefetch_factor: 2
-
-  # Memory optimization
-  clear_cache_every: 100  # Clear CUDA cache every N batches
-
-  # Progress display
-  show_progress: true
-  progress_bar: true
-
-# Error Handling
-error_handling:
-  # What to do on face detection failure
-  on_face_detection_error: "use_fallback"  # Options: "use_fallback", "skip", "raise"
-
-  # What to do on inference error
-  on_inference_error: "log_and_skip"  # Options: "log_and_skip", "raise"
-
-  # What to do on OOM error
-  on_oom_error: "reduce_batch_size"  # Options: "reduce_batch_size", "raise"
-  min_batch_size: 8  # Minimum batch size before raising error
-
-# Reproducibility
-seed: 42
-deterministic: true
+  # OOM fallback strategy
+  oom_fallback:
+    enabled: true
+    steps:
+      - reduce_batch_size: 32
+      - reduce_batch_size: 16
+      - reduce_video_frames: 8
+      - enable_cpu_fallback: true
+  
+  # Memory management
+  memory:
+    empty_cache_frequency: 100  # Clear GPU cache every N batches
+    max_memory_usage_gb: 20  # Alert if exceeds (for L4 GPU: 24GB)
+  
+  # Timeout
+  max_inference_time_hours: 2  # Safety margin (competition limit: 3 hours)
 
 # Logging
 logging:
-  level: "INFO"  # Options: "DEBUG", "INFO", "WARNING", "ERROR"
-  log_file: "./logs/inference.log"
-  console_output: true
+  level: "INFO"
+  log_file: "logs/inference.log"
+  print_progress: true
+  progress_interval: 10  # Print progress every N files
