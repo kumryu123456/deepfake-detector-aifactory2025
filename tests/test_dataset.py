@@ -1,302 +1,328 @@
 """Unit tests for DeepfakeDataset.
 
 This script validates the Dataset implementation with sample data.
+Run with: pytest tests/test_dataset.py -v
 """
 
-import sys
+import tempfile
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
+import pytest
 import torch
 from torch.utils.data import DataLoader
 
 from data import DeepfakeDataset, collate_fn, create_inference_dataset
 
 
-def test_dataset_initialization():
-    """Test dataset initialization."""
-    print("=" * 80)
-    print("TEST 1: Dataset Initialization")
-    print("=" * 80)
+class TestDatasetInitialization:
+    """Test dataset initialization and validation."""
 
-    # Test with non-existent directory (should raise error)
-    try:
-        dataset = DeepfakeDataset(
-            data_dir="./nonexistent_directory",
-            mode="inference",
-        )
-        print("❌ FAIL: Should raise FileNotFoundError for non-existent directory")
-    except FileNotFoundError:
-        print("✅ PASS: Correctly raises FileNotFoundError for non-existent directory")
+    def test_nonexistent_directory_raises_error(self):
+        """Test that non-existent directory raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            DeepfakeDataset(
+                data_dir="./nonexistent_directory",
+                mode="inference",
+            )
 
-    # Test invalid mode
-    try:
-        dataset = DeepfakeDataset(
-            data_dir="./data",
-            mode="invalid_mode",
-        )
-        print("❌ FAIL: Should raise ValueError for invalid mode")
-    except ValueError:
-        print("✅ PASS: Correctly raises ValueError for invalid mode")
+    def test_invalid_mode_raises_error(self):
+        """Test that invalid mode raises ValueError."""
+        with tempfile.TemporaryDirectory() as test_dir:
+            with pytest.raises(ValueError):
+                DeepfakeDataset(
+                    data_dir=test_dir,
+                    mode="invalid_mode",
+                )
 
-    # Test training mode without labels
-    try:
-        dataset = DeepfakeDataset(
-            data_dir="./data",
-            mode="train",
-            labels_dict=None,
-        )
-        print("❌ FAIL: Should raise ValueError for training mode without labels")
-    except ValueError:
-        print("✅ PASS: Correctly raises ValueError for training mode without labels")
-
-    print("\n✅ All initialization tests passed!\n")
+    def test_train_mode_without_labels_raises_error(self):
+        """Test that training mode without labels raises ValueError."""
+        with tempfile.TemporaryDirectory() as test_dir:
+            with pytest.raises(ValueError):
+                DeepfakeDataset(
+                    data_dir=test_dir,
+                    mode="train",
+                    labels_dict=None,
+                )
 
 
-def test_file_scanning():
-    """Test file scanning and filtering."""
-    print("=" * 80)
-    print("TEST 2: File Scanning")
-    print("=" * 80)
+class TestFileScanning:
+    """Test file scanning and filtering functionality."""
 
-    # Create test data directory
-    test_dir = Path("./test_data_temp")
-    test_dir.mkdir(exist_ok=True)
+    def test_file_discovery_and_filtering(self):
+        """Test that dataset correctly discovers and filters supported file types."""
+        with tempfile.TemporaryDirectory() as test_dir:
+            test_dir = Path(test_dir)
 
-    # Create dummy files
-    (test_dir / "image1.jpg").touch()
-    (test_dir / "IMAGE2.JPG").touch()  # Uppercase extension
-    (test_dir / "image3.png").touch()
-    (test_dir / "video1.mp4").touch()
-    (test_dir / "VIDEO2.MP4").touch()  # Uppercase extension
-    (test_dir / "readme.txt").touch()  # Unsupported format
-    (test_dir / "data.csv").touch()  # Unsupported format
+            # Create dummy files
+            (test_dir / "image1.jpg").touch()
+            (test_dir / "IMAGE2.JPG").touch()  # Uppercase extension
+            (test_dir / "image3.png").touch()
+            (test_dir / "video1.mp4").touch()
+            (test_dir / "VIDEO2.MP4").touch()  # Uppercase extension
+            (test_dir / "readme.txt").touch()  # Unsupported format
+            (test_dir / "data.csv").touch()  # Unsupported format
 
-    # Initialize dataset
-    dataset = DeepfakeDataset(
-        data_dir=test_dir,
-        mode="inference",
-        verbose=False,
-    )
+            # Initialize dataset
+            dataset = DeepfakeDataset(
+                data_dir=test_dir,
+                mode="inference",
+                verbose=False,
+            )
 
-    # Check file count
-    expected_count = 5  # 3 images + 2 videos
-    actual_count = len(dataset)
+            # Check file count (3 images + 2 videos = 5)
+            expected_count = 5
+            actual_count = len(dataset)
+            assert actual_count == expected_count, f"Expected {expected_count} files, got {actual_count}"
 
-    if actual_count == expected_count:
-        print(f"✅ PASS: Correctly found {actual_count} supported files")
-    else:
-        print(f"❌ FAIL: Expected {expected_count} files, got {actual_count}")
+            # Check statistics
+            stats = dataset.get_statistics()
+            assert stats["total_files"] == 5
+            assert stats["num_images"] == 3, f"Expected 3 images, got {stats['num_images']}"
+            assert stats["num_videos"] == 2, f"Expected 2 videos, got {stats['num_videos']}"
 
-    # Check file list
-    file_list = dataset.get_file_list()
-    print(f"\nFound files: {file_list}")
+    def test_file_list_retrieval(self):
+        """Test that file list can be retrieved."""
+        with tempfile.TemporaryDirectory() as test_dir:
+            test_dir = Path(test_dir)
 
-    # Check statistics
-    stats = dataset.get_statistics()
-    print(f"\nDataset statistics:")
-    print(f"  Total files: {stats['total_files']}")
-    print(f"  Images: {stats['num_images']}")
-    print(f"  Videos: {stats['num_videos']}")
+            # Create test files
+            (test_dir / "test_image.jpg").touch()
+            (test_dir / "test_video.mp4").touch()
 
-    if stats["num_images"] == 3 and stats["num_videos"] == 2:
-        print("✅ PASS: Correct image/video counts")
-    else:
-        print(f"❌ FAIL: Expected 3 images and 2 videos")
+            dataset = DeepfakeDataset(
+                data_dir=test_dir,
+                mode="inference",
+                verbose=False,
+            )
 
-    # Cleanup
-    import shutil
-    shutil.rmtree(test_dir)
-
-    print("\n✅ File scanning tests passed!\n")
+            file_list = dataset.get_file_list()
+            assert isinstance(file_list, list)
+            assert len(file_list) == 2
 
 
-def test_sample_structure():
-    """Test sample dictionary structure."""
-    print("=" * 80)
-    print("TEST 3: Sample Structure")
-    print("=" * 80)
+class TestSampleStructure:
+    """Test sample dictionary structure and real dataset output."""
 
-    # This test requires actual data - we'll create a mock sample
-    print("Creating mock sample to test structure...")
+    def test_mock_sample_structure_inference(self):
+        """Test expected structure for inference mode samples."""
+        # Expected keys for inference mode
+        expected_keys = {"frames", "filename", "is_video"}
 
-    # Expected keys for inference mode
-    expected_keys_inference = {"frames", "filename", "is_video"}
-
-    # Expected keys for training mode
-    expected_keys_training = {"frames", "filename", "is_video", "label"}
-
-    # Create mock samples
-    mock_sample_inference = {
-        "frames": torch.randn(1, 3, 224, 224),  # Image
-        "filename": "test.jpg",
-        "is_video": False,
-    }
-
-    mock_sample_training = {
-        "frames": torch.randn(16, 3, 224, 224),  # Video
-        "filename": "test.mp4",
-        "is_video": True,
-        "label": 1,
-    }
-
-    # Check inference sample
-    if set(mock_sample_inference.keys()) == expected_keys_inference:
-        print("✅ PASS: Inference sample has correct keys")
-    else:
-        print(f"❌ FAIL: Inference sample keys mismatch")
-
-    # Check training sample
-    if set(mock_sample_training.keys()) == expected_keys_training:
-        print("✅ PASS: Training sample has correct keys")
-    else:
-        print(f"❌ FAIL: Training sample keys mismatch")
-
-    # Check tensor shapes
-    if mock_sample_inference["frames"].shape == (1, 3, 224, 224):
-        print("✅ PASS: Image tensor has correct shape (1, 3, 224, 224)")
-    else:
-        print(f"❌ FAIL: Image tensor shape mismatch")
-
-    if mock_sample_training["frames"].shape == (16, 3, 224, 224):
-        print("✅ PASS: Video tensor has correct shape (16, 3, 224, 224)")
-    else:
-        print(f"❌ FAIL: Video tensor shape mismatch")
-
-    print("\n✅ Sample structure tests passed!\n")
-
-
-def test_collate_function():
-    """Test custom collate function."""
-    print("=" * 80)
-    print("TEST 4: Collate Function")
-    print("=" * 80)
-
-    # Create mock batch
-    batch = [
-        {
+        # Create mock sample
+        mock_sample = {
             "frames": torch.randn(1, 3, 224, 224),  # Image
-            "filename": "image1.jpg",
+            "filename": "test.jpg",
             "is_video": False,
-            "label": 0,
-        },
-        {
+        }
+
+        assert set(mock_sample.keys()) == expected_keys
+        assert mock_sample["frames"].shape == (1, 3, 224, 224)
+
+    def test_mock_sample_structure_training(self):
+        """Test expected structure for training mode samples."""
+        # Expected keys for training mode
+        expected_keys = {"frames", "filename", "is_video", "label"}
+
+        # Create mock sample
+        mock_sample = {
             "frames": torch.randn(16, 3, 224, 224),  # Video
-            "filename": "video1.mp4",
+            "filename": "test.mp4",
             "is_video": True,
             "label": 1,
-        },
-        {
-            "frames": torch.randn(1, 3, 224, 224),  # Image
-            "filename": "image2.jpg",
-            "is_video": False,
-            "label": 1,
-        },
-    ]
+        }
 
-    # Apply collate function
-    batched = collate_fn(batch)
+        assert set(mock_sample.keys()) == expected_keys
+        assert mock_sample["frames"].shape == (16, 3, 224, 224)
 
-    # Check structure
-    expected_keys = {"frames", "filename", "is_video", "num_frames", "label"}
-    if set(batched.keys()) == expected_keys:
-        print("✅ PASS: Batched sample has correct keys")
-    else:
-        print(f"❌ FAIL: Batched sample keys: {batched.keys()}")
+    def test_real_dataset_output_image(self):
+        """Test actual dataset output with real image file."""
+        with tempfile.TemporaryDirectory() as test_dir:
+            test_dir = Path(test_dir)
 
-    # Check frames list
-    if isinstance(batched["frames"], list) and len(batched["frames"]) == 3:
-        print("✅ PASS: Frames is a list with 3 items")
-    else:
-        print(f"❌ FAIL: Frames should be a list with 3 items")
+            # Create a small test image file (1x1 pixel)
+            import numpy as np
+            from PIL import Image
 
-    # Check num_frames
-    expected_num_frames = [1, 16, 1]
-    if batched["num_frames"] == expected_num_frames:
-        print(f"✅ PASS: num_frames is correct: {expected_num_frames}")
-    else:
-        print(f"❌ FAIL: num_frames mismatch: {batched['num_frames']}")
+            test_image_path = test_dir / "test_image.jpg"
+            img = Image.fromarray(np.ones((10, 10, 3), dtype=np.uint8) * 128)
+            img.save(test_image_path)
 
-    # Check labels
-    expected_labels = torch.tensor([0, 1, 1], dtype=torch.long)
-    if torch.equal(batched["label"], expected_labels):
-        print("✅ PASS: Labels tensor is correct")
-    else:
-        print(f"❌ FAIL: Labels mismatch: {batched['label']}")
+            # Create dataset
+            dataset = DeepfakeDataset(
+                data_dir=test_dir,
+                mode="inference",
+                verbose=False,
+            )
 
-    # Check filenames
-    expected_filenames = ["image1.jpg", "video1.mp4", "image2.jpg"]
-    if batched["filename"] == expected_filenames:
-        print("✅ PASS: Filenames list is correct")
-    else:
-        print(f"❌ FAIL: Filenames mismatch: {batched['filename']}")
+            # Get actual sample from dataset
+            sample = dataset[0]
 
-    print("\n✅ Collate function tests passed!\n")
+            # Verify structure
+            assert "frames" in sample
+            assert "filename" in sample
+            assert "is_video" in sample
+            assert isinstance(sample["frames"], torch.Tensor)
+            assert sample["frames"].dtype == torch.float32
+            assert sample["is_video"] is False
+            # Image should have shape (1, C, H, W) for single frame
+            assert sample["frames"].ndim == 4
+            assert sample["frames"].shape[0] == 1  # Single frame
 
+    def test_real_dataset_output_with_labels(self):
+        """Test actual dataset output in training mode with labels."""
+        with tempfile.TemporaryDirectory() as test_dir:
+            test_dir = Path(test_dir)
 
-def test_factory_functions():
-    """Test factory functions."""
-    print("=" * 80)
-    print("TEST 5: Factory Functions")
-    print("=" * 80)
+            # Create a small test image
+            import numpy as np
+            from PIL import Image
 
-    # Test create_inference_dataset (will fail if ./data doesn't exist, but that's OK)
-    print("Testing create_inference_dataset()...")
-    try:
-        # Create test directory
-        test_dir = Path("./test_data_temp2")
-        test_dir.mkdir(exist_ok=True)
-        (test_dir / "test.jpg").touch()
+            test_image_path = test_dir / "test_image.jpg"
+            img = Image.fromarray(np.ones((10, 10, 3), dtype=np.uint8) * 128)
+            img.save(test_image_path)
 
-        dataset = create_inference_dataset(
-            data_dir=test_dir,
-            verbose=False,
-        )
+            # Create dataset with labels
+            labels_dict = {"test_image.jpg": 1}
+            dataset = DeepfakeDataset(
+                data_dir=test_dir,
+                mode="train",
+                labels_dict=labels_dict,
+                verbose=False,
+            )
 
-        if dataset.mode == "inference":
-            print("✅ PASS: create_inference_dataset() creates dataset in inference mode")
-        else:
-            print(f"❌ FAIL: Expected inference mode, got {dataset.mode}")
+            # Get sample
+            sample = dataset[0]
 
-        # Cleanup
-        import shutil
-        shutil.rmtree(test_dir)
-
-    except Exception as e:
-        print(f"⚠️  WARNING: create_inference_dataset() test skipped: {e}")
-
-    print("\n✅ Factory function tests passed!\n")
+            # Verify structure includes label
+            assert "label" in sample
+            assert sample["label"] == 1
 
 
-def main():
-    """Run all tests."""
-    print("\n" + "=" * 80)
-    print("DEEPFAKE DATASET VALIDATION TESTS")
-    print("=" * 80 + "\n")
+class TestCollateFunction:
+    """Test custom collate function for batching."""
 
-    try:
-        test_dataset_initialization()
-        test_file_scanning()
-        test_sample_structure()
-        test_collate_function()
-        test_factory_functions()
+    def test_collate_mixed_batch(self):
+        """Test collate function with mixed image and video batch."""
+        # Create mock batch
+        batch = [
+            {
+                "frames": torch.randn(1, 3, 224, 224),  # Image
+                "filename": "image1.jpg",
+                "is_video": False,
+                "label": 0,
+            },
+            {
+                "frames": torch.randn(16, 3, 224, 224),  # Video
+                "filename": "video1.mp4",
+                "is_video": True,
+                "label": 1,
+            },
+            {
+                "frames": torch.randn(1, 3, 224, 224),  # Image
+                "filename": "image2.jpg",
+                "is_video": False,
+                "label": 1,
+            },
+        ]
 
-        print("=" * 80)
-        print("🎉 ALL TESTS PASSED!")
-        print("=" * 80)
+        # Apply collate function
+        batched = collate_fn(batch)
 
-    except Exception as e:
-        print("\n" + "=" * 80)
-        print(f"❌ TEST SUITE FAILED: {e}")
-        print("=" * 80)
-        import traceback
-        traceback.print_exc()
-        return 1
+        # Check structure
+        expected_keys = {"frames", "filename", "is_video", "num_frames", "label"}
+        assert set(batched.keys()) == expected_keys
 
-    return 0
+        # Check frames list
+        assert isinstance(batched["frames"], list)
+        assert len(batched["frames"]) == 3
+
+        # Check num_frames
+        assert batched["num_frames"] == [1, 16, 1]
+
+        # Check labels tensor
+        expected_labels = torch.tensor([0, 1, 1], dtype=torch.long)
+        assert torch.equal(batched["label"], expected_labels)
+
+        # Check filenames list
+        assert batched["filename"] == ["image1.jpg", "video1.mp4", "image2.jpg"]
+
+    def test_collate_inference_batch(self):
+        """Test collate function with inference mode batch (no labels)."""
+        batch = [
+            {
+                "frames": torch.randn(1, 3, 224, 224),
+                "filename": "image1.jpg",
+                "is_video": False,
+            },
+            {
+                "frames": torch.randn(8, 3, 224, 224),
+                "filename": "video1.mp4",
+                "is_video": True,
+            },
+        ]
+
+        batched = collate_fn(batch)
+
+        # Should not have labels key
+        assert "label" not in batched
+        assert len(batched["frames"]) == 2
+        assert batched["num_frames"] == [1, 8]
 
 
-if __name__ == "__main__":
-    exit(main())
+class TestFactoryFunctions:
+    """Test factory functions for dataset creation."""
+
+    def test_create_inference_dataset(self):
+        """Test create_inference_dataset factory function."""
+        with tempfile.TemporaryDirectory() as test_dir:
+            test_dir = Path(test_dir)
+            (test_dir / "test.jpg").touch()
+
+            dataset = create_inference_dataset(
+                data_dir=test_dir,
+                verbose=False,
+            )
+
+            assert dataset.mode == "inference"
+            assert len(dataset) >= 0  # Should not raise error
+
+
+class TestDataLoader:
+    """Test DataLoader integration."""
+
+    def test_dataloader_creation(self):
+        """Test that dataset works with PyTorch DataLoader."""
+        with tempfile.TemporaryDirectory() as test_dir:
+            test_dir = Path(test_dir)
+
+            # Create test files
+            import numpy as np
+            from PIL import Image
+
+            for i in range(3):
+                img = Image.fromarray(np.ones((10, 10, 3), dtype=np.uint8) * 128)
+                img.save(test_dir / f"image{i}.jpg")
+
+            dataset = DeepfakeDataset(
+                data_dir=test_dir,
+                mode="inference",
+                verbose=False,
+            )
+
+            # Create DataLoader
+            dataloader = DataLoader(
+                dataset,
+                batch_size=2,
+                collate_fn=collate_fn,
+                shuffle=False,
+            )
+
+            # Test iteration
+            batch_count = 0
+            for batch in dataloader:
+                batch_count += 1
+                assert "frames" in batch
+                assert "filename" in batch
+                assert isinstance(batch["frames"], list)
+
+            assert batch_count > 0  # Should have at least one batch

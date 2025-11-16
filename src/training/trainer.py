@@ -293,10 +293,10 @@ class Trainer:
                 warmup_start_lr = scheduler_config.get("warmup_start_lr", 1e-5)
                 base_lr = self.optimizer.param_groups[0]["lr"]
 
-                # Warmup scheduler
+                # Warmup scheduler (returns multiplicative factor, not absolute LR)
                 warmup_scheduler = LambdaLR(
                     self.optimizer,
-                    lr_lambda=lambda epoch: (base_lr - warmup_start_lr) * epoch / warmup_epochs + warmup_start_lr
+                    lr_lambda=lambda epoch: ((base_lr - warmup_start_lr) * epoch / warmup_epochs + warmup_start_lr) / base_lr
                 )
 
                 # Combine warmup + main scheduler
