@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "SlashCommand(/speckit.tasks)",
+      "Bash(.specify/scripts/bash/check-prerequisites.sh --json)",
+      "WebSearch",
+      "Bash(git add:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python3 -m py_compile:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
