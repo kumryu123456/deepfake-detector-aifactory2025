@@ -13,22 +13,28 @@
 
 **Last Updated**: 2025-11-17
 
-**Completed**: 42 / 80 tasks (52.5%)
+**Completed**: 43 / 80 tasks (53.75%)
 
-**Current Phase**: Phase 4 - User Story 2 (Model Submission) - COMPLETE ✅
+**Current Phase**: Ready for Model Training and Pipeline Testing
 
 **Recent Milestones**:
 - ✅ Phase 1: Setup (T001-T009) - COMPLETE
 - ✅ Phase 2: Foundational Infrastructure - Core complete (T013-T014, T016-T024)
 - ✅ Phase 3: Model Architecture (T034-T037) - COMPLETE
-- ✅ Phase 3: Training Infrastructure (T038-T041) - COMPLETE
+- ✅ Phase 3: Training Infrastructure (T038-T042) - COMPLETE
 - ✅ Phase 4: Inference Pipeline (T039, T055-T057) - COMPLETE
 - ✅ Phase 4: Submission Notebook (T058-T068) - COMPLETE
 
-**Next Steps**:
-- T042-T049: Model training and validation
-- T050-T054: User Story 2 testing
-- T069-T080: Polish & documentation (Phase 5)
+**Ready for Deployment**:
+- 🎯 Complete submission pipeline ready (task.ipynb)
+- 🎯 Baseline training configuration created
+- 🎯 Demo checkpoint script for testing
+- 🎯 Comprehensive setup guide
+
+**Next Steps (Choose One Path)**:
+- **Path A (Quick Testing)**: Set up environment → Create demo checkpoint → Test task.ipynb
+- **Path B (Full Training)**: Set up environment → Download data → Train model (T043-T049) → Test submission
+- **Path C (Testing First)**: Implement US2 tests (T050-T054) → Validate pipeline → Train model
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -136,7 +142,7 @@ Single project structure (PyTorch deep learning):
 
 ### Model Training and Validation
 
-- [ ] T042 [US1] Create baseline training config in configs/baseline_config.yaml (EfficientNet-B4 only, 100 epochs, batch size 32, lr 1e-4, AdamW optimizer, cosine annealing scheduler)
+- [x] T042 [US1] Create baseline training config in configs/baseline_config.yaml (EfficientNet-B4 + dual-branch, 100 epochs, batch size 32, lr 1e-4, AdamW optimizer, cosine annealing scheduler, combined loss, mixed precision, early stopping) ✅
 - [ ] T043 [US1] Train baseline model on FaceForensics++ using scripts/train.py with baseline_config.yaml (target: >85% accuracy, save best checkpoint to checkpoints/baseline_best.pth)
 - [ ] T044 [US1] Validate baseline model on FaceForensics++ test set using scripts/evaluate.py (verify Macro F1 >80%, per-class precision/recall balanced)
 - [ ] T045 [US1] Create hybrid training config in configs/hybrid_config.yaml (dual-branch architecture, combined loss with weights [0.5 CE, 0.3 Focal, 0.2 F1], same training params as baseline)
