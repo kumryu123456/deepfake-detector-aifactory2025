@@ -99,7 +99,24 @@ python scripts/inference.py --checkpoint checkpoints/best_model.pth --data ./dat
 
 ### 제출
 
-`notebooks/task.ipynb` 노트북을 실행하여 대회에 제출합니다.
+**대회 제출용 노트북**: `task.ipynb`
+
+AI Factory 플랫폼에서 자동 채점을 위한 완전한 추론 파이프라인을 제공합니다.
+
+```bash
+# Jupyter Notebook 실행
+jupyter notebook task.ipynb
+```
+
+노트북은 다음 단계를 자동으로 수행합니다:
+1. 의존성 설치 (PyTorch 1.13.1+cu118, CUDA 11.8)
+2. 모델 체크포인트 로드
+3. ./data/ 디렉토리의 테스트 파일 처리
+4. submission.csv 생성 (filename, label)
+5. 형식 검증
+6. AI Factory 자동 제출
+
+**자세한 사용법**: [README_NOTEBOOK.md](README_NOTEBOOK.md) 참고
 
 ## 성능 목표
 
