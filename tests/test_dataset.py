@@ -7,8 +7,10 @@ Run with: pytest tests/test_dataset.py -v
 import tempfile
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
+from PIL import Image
 from torch.utils.data import DataLoader
 
 from data import DeepfakeDataset, collate_fn, create_inference_dataset
@@ -140,9 +142,6 @@ class TestSampleStructure:
             test_dir = Path(test_dir)
 
             # Create a small test image file (1x1 pixel)
-            import numpy as np
-            from PIL import Image
-
             test_image_path = test_dir / "test_image.jpg"
             img = Image.fromarray(np.ones((10, 10, 3), dtype=np.uint8) * 128)
             img.save(test_image_path)
@@ -174,9 +173,6 @@ class TestSampleStructure:
             test_dir = Path(test_dir)
 
             # Create a small test image
-            import numpy as np
-            from PIL import Image
-
             test_image_path = test_dir / "test_image.jpg"
             img = Image.fromarray(np.ones((10, 10, 3), dtype=np.uint8) * 128)
             img.save(test_image_path)
@@ -284,7 +280,7 @@ class TestFactoryFunctions:
             )
 
             assert dataset.mode == "inference"
-            assert len(dataset) >= 0  # Should not raise error
+            assert len(dataset) == 1  # Should find exactly one file
 
 
 class TestDataLoader:
@@ -296,9 +292,6 @@ class TestDataLoader:
             test_dir = Path(test_dir)
 
             # Create test files
-            import numpy as np
-            from PIL import Image
-
             for i in range(3):
                 img = Image.fromarray(np.ones((10, 10, 3), dtype=np.uint8) * 128)
                 img.save(test_dir / f"image{i}.jpg")
@@ -325,4 +318,4 @@ class TestDataLoader:
                 assert "filename" in batch
                 assert isinstance(batch["frames"], list)
 
-            assert batch_count > 0  # Should have at least one batch
+            assert batch_count == 2  # 3 items with batch_size=2 yields exactly 2 batches
