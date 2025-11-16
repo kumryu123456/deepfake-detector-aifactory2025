@@ -163,10 +163,17 @@ image002.png,1
 
 **Feature Extraction Flow**:
 1. Input: RGB image (224×224×3)
-2. EfficientNet-B4 → 1792-dim feature vector
-3. Reshape to patch embeddings: (49, 1792) for 7×7 spatial patches
-4. Add positional encoding
-5. Transformer encoder → 512-dim global features
+2. EfficientNet-B4 forward pass → Feature map of shape (batch, 1792, 7, 7)
+   - **Note**: EfficientNet-B4's final conv layer outputs 1792 channels with 7×7 spatial dimensions
+   - This is BEFORE global average pooling (we bypass pooling for Transformer)
+3. Reshape feature map to patch embeddings: (batch, 49, 1792)
+   - **Clarification**: 49 patches = 7×7 spatial locations, each with 1792 features
+   - Each spatial location is treated as a "patch" for the Transformer
+4. Add learnable positional encoding: (batch, 49, 1792)
+5. Transformer encoder processes sequence of 49 patches → (batch, 49, 512)
+6. Global average pooling across patches → (batch, 512) final spatial feature vector
+
+**Implementation Note**: Extract features from EfficientNet-B4 BEFORE the global pooling layer to preserve spatial information for Transformer processing.
 
 #### 3.2.2 Frequency Branch
 
@@ -177,13 +184,21 @@ image002.png,1
 {
   "method": "fft2d",  # 2D Fast Fourier Transform
   "components": ["amplitude", "phase"],
-  "input_size": (224, 224),  # Spatial dimensions
+  "input_size": (224, 224),  # Applied to preprocessed face images (AFTER resizing to 224×224)
   "freq_filters": [
     {"type": "high_pass", "cutoff": 0.3},  # Capture high-freq artifacts
     {"type": "band_pass", "low": 0.1, "high": 0.7}
   ]
 }
 ```
+
+**Clarification - Frequency Branch Input**:
+- FFT is applied to the **preprocessed RGB face image** of size 224×224
+- This is the SAME input image that goes to the Spatial Branch
+- The image is converted from spatial domain (224×224×3) to frequency domain
+- For each RGB channel, we compute: amplitude = abs(FFT2D(channel)), phase = angle(FFT2D(channel))
+- Result: amplitude (224×224×3) and phase (224×224×3), stacked to create (224×224×6) input for frequency CNN
+- **Note**: Some implementations average across RGB channels first → (224×224) single-channel → (224×224×2) for amp+phase
 
 **Frequency CNN**
 
@@ -212,9 +227,53 @@ image002.png,1
   "input_dim": 1024,  # 512 spatial + 512 frequency
   "attention_heads": 4,
   "attention_dim": 256,
-  "output_dim": 512
+  "output_dim": 512,
+  "fusion_strategy": "hierarchical"  # or "late_fusion" for simpler approach
 }
 ```
+
+**Fusion Architecture Details**:
+
+The fusion layer combines 1024-dim input (spatial 512 + frequency 512) into 512-dim output. This dimensionality reduction is **intentional and beneficial**:
+
+1. **Information Redundancy**: Spatial and frequency features capture overlapping information about the same input image
+2. **Attention Mechanism**: Self-attention learns to weight and select the most discriminative features from both branches
+3. **Compression is Feature Selection**: Not all 1024 dimensions are equally important; attention compresses by selecting salient information
+
+**Implementation Options**:
+
+**Option A: Late Fusion (Simpler, Faster)**
+```
+Concatenate [spatial_512 | frequency_512] → 1024-dim
+  ↓
+Linear projection: 1024 → 512
+  ↓
+Output: 512-dim fused features
+```
+- **Information Loss**: Minimal if features are redundant
+- **Speed**: Fast, single linear layer
+- **Use when**: Speed is critical or features are highly correlated
+
+**Option B: Hierarchical Fusion (Better Performance, Recommended)**
+```
+Step 1: Cross-Modal Attention
+  Q = Linear(spatial_512),  K = Linear(frequency_512),  V = Linear(frequency_512)
+  attended_freq = MultiHeadAttention(Q, K, V) → 512-dim
+
+Step 2: Combine
+  combined = Concatenate([spatial_512 | attended_freq_512]) → 1024-dim
+
+Step 3: Self-Attention + Projection
+  fused = SelfAttention(combined) → 1024-dim
+  output = Linear(fused) → 512-dim
+```
+- **Information Loss**: Minimized through explicit cross-modal attention
+- **Benefit**: Learns which frequency features complement spatial features
+- **Trade-off**: +10-15ms inference time, +2-3% F1 improvement
+
+**Verification**: To ensure minimal information loss, monitor validation performance:
+- If fusion improves F1 over single-branch models → fusion is effective
+- If F1 drops after fusion → indicates poor feature integration (debug attention weights)
 
 **Classification Head**
 

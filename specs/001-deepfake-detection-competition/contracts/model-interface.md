@@ -774,18 +774,140 @@ class InferenceError(DeepfakeDetectionError):
     pass
 ```
 
-## 9. Contract Compliance
+## 9. Input Validation Requirements
+
+All implementations MUST validate inputs according to these specifications:
+
+### 9.1 Image Input Validation
+
+```python
+def validate_image_input(image: np.ndarray) -> None:
+    """Validate raw image input before processing."""
+    # Shape validation
+    assert len(image.shape) == 3, f"Image must be 3D (H, W, C), got shape {image.shape}"
+    assert image.shape[2] == 3, f"Image must have 3 channels (RGB), got {image.shape[2]}"
+
+    # Dimension validation
+    h, w, c = image.shape
+    assert h >= 224 and w >= 224, f"Image dimensions must be at least 224x224, got {h}x{w}"
+
+    # Data type validation
+    assert image.dtype in [np.uint8, np.float32, np.float64], \
+        f"Image dtype must be uint8 or float, got {image.dtype}"
+
+    # Value range validation
+    if image.dtype == np.uint8:
+        assert image.min() >= 0 and image.max() <= 255, "uint8 image values out of range [0, 255]"
+    elif image.dtype in [np.float32, np.float64]:
+        assert image.min() >= 0.0 and image.max() <= 255.0, \
+            "Float image values must be in range [0, 1] or [0, 255]"
+```
+
+### 9.2 Video Input Validation
+
+```python
+def validate_video_input(video_path: str) -> None:
+    """Validate video file before processing."""
+    # File existence
+    assert os.path.exists(video_path), f"Video file not found: {video_path}"
+
+    # Format validation
+    assert video_path.lower().endswith('.mp4'), \
+        f"Video must be .mp4 format, got {os.path.splitext(video_path)[1]}"
+
+    # Readability check
+    import cv2
+    cap = cv2.VideoCapture(video_path)
+    assert cap.isOpened(), f"Cannot open video file: {video_path}"
+
+    # Frame count validation
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    assert frame_count >= 1, f"Video must contain at least 1 frame, got {frame_count}"
+
+    cap.release()
+```
+
+### 9.3 Model Input Tensor Validation
+
+```python
+def validate_model_input(x: torch.Tensor) -> None:
+    """Validate preprocessed tensor input to model."""
+    # Shape validation
+    assert len(x.shape) == 4, f"Input must be 4D (B, C, H, W), got shape {x.shape}"
+    batch_size, channels, height, width = x.shape
+
+    # Channel validation
+    assert channels == 3, f"Input must have 3 channels (RGB), got {channels}"
+
+    # Dimension validation
+    assert height >= 224 and width >= 224, \
+        f"Input dimensions must be at least 224x224, got {height}x{width}"
+
+    # Data type validation
+    assert x.dtype == torch.float32, f"Input dtype must be float32, got {x.dtype}"
+
+    # Normalization check (warn if not normalized)
+    if x.min() < -5.0 or x.max() > 5.0:
+        import warnings
+        warnings.warn(f"Input values may not be normalized: min={x.min():.2f}, max={x.max():.2f}")
+```
+
+### 9.4 Batch Size Validation
+
+```python
+def validate_batch_size(batch_size: int) -> None:
+    """Validate batch size parameter."""
+    assert isinstance(batch_size, int), f"Batch size must be int, got {type(batch_size)}"
+    assert 1 <= batch_size <= 256, \
+        f"Batch size must be in range [1, 256], got {batch_size}"
+```
+
+### 9.5 Device Consistency Validation
+
+```python
+def validate_device_consistency(tensors: List[torch.Tensor], expected_device: str) -> None:
+    """Ensure all tensors are on the same device."""
+    for i, tensor in enumerate(tensors):
+        actual_device = str(tensor.device)
+        assert expected_device in actual_device, \
+            f"Tensor {i} on device {actual_device}, expected {expected_device}"
+```
+
+### 9.6 Error Handling for Invalid Inputs
+
+All validation failures MUST raise `InvalidInputError` with descriptive messages:
+
+```python
+try:
+    validate_image_input(image)
+except AssertionError as e:
+    raise InvalidInputError(f"Image validation failed: {str(e)}")
+```
+
+### 9.7 Validation Checklist
+
+Before processing any input, implementations MUST verify:
+
+- [ ] **Image Input**: Shape (H, W, 3), dtype uint8 or float32, H≥224, W≥224, values in valid range
+- [ ] **Video Input**: Format .mp4, file exists, readable, contains ≥1 frame
+- [ ] **Model Input**: Shape (B, 3, H, W), dtype float32, normalized to appropriate range
+- [ ] **Batch Size**: Integer in range [1, 256]
+- [ ] **Device Placement**: All tensors on consistent device (cuda/cpu)
+- [ ] **File Paths**: Exist and are accessible before reading
+- [ ] **Output Directory**: Writable before saving results
+
+## 10. Contract Compliance
 
 All implementations MUST:
 
 1. **Follow Type Hints**: Use Python type annotations for all parameters and return values
 2. **Handle Errors Gracefully**: Catch exceptions and provide meaningful error messages
 3. **Document Thoroughly**: Include docstrings with Args, Returns, and Raises sections
-4. **Validate Inputs**: Check input shapes, types, and ranges before processing
+4. **Validate Inputs**: Apply validation functions from Section 9 before processing
 5. **Log Appropriately**: Use logging module for debugging and monitoring
 6. **Be Reproducible**: Support setting random seeds for deterministic behavior
 
-## 10. Testing Requirements
+## 11. Testing Requirements
 
 Each interface implementation MUST have:
 
@@ -811,7 +933,7 @@ def test_face_detector_with_no_face():
         detector.detect_and_crop(blank_image)
 ```
 
-## 11. Summary
+## 12. Summary
 
 This contract defines:
 

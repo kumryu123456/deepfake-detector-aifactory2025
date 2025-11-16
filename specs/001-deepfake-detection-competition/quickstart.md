@@ -686,6 +686,160 @@ def test_submission_format(csv_path, data_dir=None):
     print(f"  - Real (0): {(df['label'] == 0).sum()}")
     print(f"  - Fake (1): {(df['label'] == 1).sum()}")
 
+def validate_and_fix_submission(csv_path, data_dir=None, auto_fix=False):
+    """
+    Enhanced validation with error detection and optional auto-fix.
+
+    Args:
+        csv_path: Path to submission.csv
+        data_dir: Optional path to test data directory for completeness check
+        auto_fix: If True, attempt to fix common errors automatically
+
+    Returns:
+        tuple: (is_valid: bool, errors: List[str], warnings: List[str])
+    """
+    errors = []
+    warnings = []
+
+    # Read CSV with error handling
+    try:
+        df = pd.read_csv(csv_path)
+    except FileNotFoundError:
+        return False, [f"File not found: {csv_path}"], []
+    except pd.errors.EmptyDataError:
+        return False, ["CSV file is empty"], []
+    except Exception as e:
+        return False, [f"Failed to read CSV: {str(e)}"], []
+
+    # Validate filename
+    if os.path.basename(csv_path) != 'submission.csv':
+        errors.append(f"File must be named 'submission.csv', got '{os.path.basename(csv_path)}'")
+
+    # Validate columns
+    if list(df.columns) != ['filename', 'label']:
+        errors.append(f"Invalid columns: {list(df.columns)}. Expected: ['filename', 'label']")
+        return False, errors, warnings
+
+    # Check for empty DataFrame
+    if len(df) == 0:
+        errors.append("CSV contains no predictions")
+        return False, errors, warnings
+
+    # Validate label types and values
+    if df['label'].dtype not in [int, 'int64', 'int32']:
+        if auto_fix:
+            try:
+                df['label'] = df['label'].astype(int)
+                warnings.append("Auto-fixed: Converted labels to integer type")
+            except ValueError:
+                errors.append(f"Labels must be integers. Found dtype: {df['label'].dtype}")
+        else:
+            errors.append(f"Labels must be integers. Found dtype: {df['label'].dtype}")
+
+    # Check for invalid label values
+    invalid_labels = df[~df['label'].isin([0, 1])]
+    if len(invalid_labels) > 0:
+        errors.append(f"Found {len(invalid_labels)} invalid label values (must be 0 or 1)")
+        errors.append(f"  Invalid rows: {invalid_labels.index.tolist()[:10]}")  # Show first 10
+
+    # Check for null/NaN values
+    null_labels = df[df['label'].isnull()]
+    if len(null_labels) > 0:
+        errors.append(f"Found {len(null_labels)} null/NaN labels at rows: {null_labels.index.tolist()}")
+
+    null_filenames = df[df['filename'].isnull()]
+    if len(null_filenames) > 0:
+        errors.append(f"Found {len(null_filenames)} null/NaN filenames at rows: {null_filenames.index.tolist()}")
+
+    # Check for "None" string values
+    none_labels = df[df['label'] == 'None']
+    none_filenames = df[df['filename'] == 'None']
+    if len(none_labels) > 0:
+        errors.append(f"Found {len(none_labels)} string 'None' values in label column")
+    if len(none_filenames) > 0:
+        errors.append(f"Found {len(none_filenames)} string 'None' values in filename column")
+
+    # Validate filename extensions (case-insensitive)
+    invalid_extensions = df[~df['filename'].str.fullmatch(r'.*\.(?:jpg|png|mp4)', case=False)]
+    if len(invalid_extensions) > 0:
+        errors.append(f"Found {len(invalid_extensions)} files with invalid extensions")
+        errors.append(f"  Examples: {invalid_extensions['filename'].head().tolist()}")
+
+    # Check for duplicate filenames
+    duplicates = df[df['filename'].duplicated(keep=False)]
+    if len(duplicates) > 0:
+        errors.append(f"Found {len(duplicates)} duplicate filenames")
+        errors.append(f"  Duplicates: {duplicates['filename'].unique().tolist()}")
+
+    # Validate against data directory if provided
+    if data_dir:
+        try:
+            input_files = set(os.listdir(data_dir))
+            submission_files = set(df['filename'].values)
+
+            missing = input_files - submission_files
+            extra = submission_files - input_files
+
+            if len(missing) > 0:
+                errors.append(f"Missing predictions for {len(missing)} files")
+                errors.append(f"  First 10 missing: {list(missing)[:10]}")
+
+            if len(extra) > 0:
+                warnings.append(f"Found {len(extra)} predictions for non-existent files")
+                warnings.append(f"  First 10 extra: {list(extra)[:10]}")
+        except Exception as e:
+            warnings.append(f"Could not validate against data directory: {str(e)}")
+
+    # Summary
+    is_valid = len(errors) == 0
+    return is_valid, errors, warnings
+
+# Example usage in inference pipeline
+def create_submission_with_validation(predictions_dict, output_path='submission.csv', data_dir=None):
+    """
+    Create and validate submission CSV with error checking.
+
+    Args:
+        predictions_dict: Dict mapping filename -> label
+        output_path: Path to save submission.csv
+        data_dir: Optional path to validate against test data
+
+    Returns:
+        bool: True if submission created and validated successfully
+    """
+    import pandas as pd
+
+    # Create DataFrame
+    df = pd.DataFrame([
+        {'filename': filename, 'label': int(label)}
+        for filename, label in predictions_dict.items()
+    ])
+
+    # Save to CSV
+    df.to_csv(output_path, index=False)
+    print(f"Created {output_path} with {len(df)} predictions")
+
+    # Validate
+    is_valid, errors, warnings = validate_and_fix_submission(output_path, data_dir)
+
+    # Report results
+    if warnings:
+        print("\n⚠ Warnings:")
+        for warning in warnings:
+            print(f"  {warning}")
+
+    if errors:
+        print("\n❌ Validation FAILED:")
+        for error in errors:
+            print(f"  {error}")
+        return False
+    else:
+        print("\n✅ Validation PASSED")
+        print(f"  - Total: {len(df)} predictions")
+        print(f"  - Real (0): {(df['label'] == 0).sum()}")
+        print(f"  - Fake (1): {(df['label'] == 1).sum()}")
+        return True
+
 def test_inference_time(model, data_dir):
     """Ensure inference completes within time limit."""
     import time

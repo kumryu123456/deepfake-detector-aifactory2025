@@ -30,9 +30,29 @@ This research document synthesizes state-of-the-art deepfake detection technique
 - **Celeb-DF v2**: F1 = 92.52% (using ViViT architecture with facial landmarks)
 - **DFT-based methods**: F1 > 99% (on specific datasets, may not generalize)
 
-### 1.2 Key Insight
+### 1.2 Key Insight: Severe Generalization Gap
 
-There is a significant generalization gap between performance on academic datasets versus real-world deepfakes. Cross-dataset robustness is critical for competition success.
+**Critical Finding**: The Deepfake-Eval-2024 benchmark reveals a more severe generalization gap than previously assumed:
+
+- **Video Models**: AUC decreased by **50%** on real-world social media deepfakes vs. academic benchmarks
+- **Audio Models**: AUC decreased by **48%** on in-the-wild data
+- **Image Models**: AUC decreased by **45%** on real-world deepfakes
+
+**Post-Fine-Tuning Performance** (after fine-tuning on Deepfake-Eval-2024 subset):
+- Video: **57.6% improvement** (but gap persists)
+- Audio: **80.6% improvement**
+- Image: **15.6% improvement** (most resistant to adaptation)
+
+**Fundamental Implication**: Even after fine-tuning on target domain data, substantial gaps remain. This indicates **fundamental limitations** of current data-driven approaches:
+1. Academic datasets (FF++, DFDC, Celeb-DF) may not capture full diversity of real-world deepfakes
+2. Generative models evolve faster than detection datasets
+3. Dataset-specific artifacts (compression, resolution, generation methods) limit transferability
+
+**For This Competition**:
+- Training on FF++ + DFDC + Celeb-DF provides a strong foundation but **cannot guarantee** robust cross-dataset performance
+- Conservative performance estimates are essential (see Section 10)
+- Frequency domain features and strong augmentation are critical to mitigate this gap
+- Cross-dataset validation during development is **mandatory**, not optional
 
 ## 2. Recommended Architecture Components
 
@@ -244,14 +264,61 @@ Recent research (2024) shows hybrid models outperform pure CNN or pure Transform
    - Focuses on hard examples
 
 2. **Macro F1 Loss** (directly optimize target metric):
-   - Differentiable approximation of F1-score
-   - Calculate F1 for each class separately, then average
+   - **Problem**: F1-score is not directly differentiable (uses argmax for predictions)
+   - **Solution**: Use soft-F1 or smooth-F1 approximation
+
+   **Recommended Implementation - Soft-F1 Loss**:
+   ```python
+   def soft_f1_loss(logits, targets, epsilon=1e-7):
+       """
+       Differentiable approximation of F1-score.
+       Uses soft predictions (probabilities) instead of hard labels.
+       """
+       # Convert logits to probabilities
+       probs = torch.softmax(logits, dim=1)
+
+       # One-hot encode targets
+       targets_one_hot = F.one_hot(targets, num_classes=2).float()
+
+       # Compute soft TP, FP, FN for each class
+       tp = (probs * targets_one_hot).sum(dim=0)
+       fp = (probs * (1 - targets_one_hot)).sum(dim=0)
+       fn = ((1 - probs) * targets_one_hot).sum(dim=0)
+
+       # Compute F1 for each class
+       precision = tp / (tp + fp + epsilon)
+       recall = tp / (tp + fn + epsilon)
+       f1_per_class = 2 * precision * recall / (precision + recall + epsilon)
+
+       # Macro F1 (average across classes)
+       macro_f1 = f1_per_class.mean()
+
+       # Return loss (1 - F1 to minimize)
+       return 1 - macro_f1
+   ```
+
+   **Alternative - Smooth F1 (using temperature)**:
+   ```python
+   def smooth_f1_loss(logits, targets, temperature=0.5):
+       """
+       Smooth F1 using temperature-scaled softmax for smoother gradients.
+       """
+       smooth_probs = torch.softmax(logits / temperature, dim=1)
+       # ... (same computation as soft-F1 but with smoothed probabilities)
+   ```
+
+   **Implementation Note**: This is for **binary classification** (Real vs Fake). For this competition:
+   - num_classes = 2 (Real=0, Fake=1)
+   - Compute F1 for both classes, then average (Macro F1)
+   - Can also use existing libraries: `kornia.losses.FocalLoss`, custom implementations
 
 3. **Combined Loss**:
    ```
-   L_total = λ1 * L_CE + λ2 * L_focal + λ3 * L_F1
+   L_total = λ1 * L_CE + λ2 * L_focal + λ3 * L_soft_f1
    ```
-   - Start with CE, gradually increase F1 loss weight
+   - Start with CE-heavy (λ1=0.7, λ2=0.2, λ3=0.1) in early epochs
+   - Gradually increase F1 weight (λ1=0.5, λ2=0.3, λ3=0.2) in later epochs
+   - This provides stable gradients early while optimizing F1 later
 
 ### 4.2 Class Balancing
 
@@ -540,38 +607,57 @@ Competition rules allow using publicly available data. Recommended sources:
 
 ## 10. Expected Performance
 
-### 10.1 Realistic Performance Targets
+### 10.1 Realistic Performance Targets (Conservative Estimates)
 
-Based on 2024 research and competition constraints:
+Based on 2024 research, Deepfake-Eval-2024 findings, and competition constraints:
 
 **Baseline (EfficientNet-B4, single dataset)**:
-- Internal validation F1: 88-92%
-- Cross-dataset F1: 75-80%
+- Internal validation F1 (on FF++): 88-92%
+- Cross-dataset F1 (FF++ → Celeb-DF): 70-75%
+- **Expected competition performance**: 65-72% (accounting for 45-50% generalization gap)
 
 **Hybrid Model (EfficientNet + Frequency, multi-dataset)**:
-- Internal validation F1: 90-94%
-- Cross-dataset F1: 82-87%
-- **Competition test F1 (estimated)**: 80-85%
+- Internal validation F1 (on FF++ + DFDC): 90-94%
+- Cross-dataset F1 (FF++/DFDC → Celeb-DF): 78-83%
+- **Conservative competition estimate**: 75-80%
+- **Realistic target**: 80-82%
+- **Optimistic (with perfect generalization)**: 82-85%
 
-**Optimistic (with all optimizations)**:
-- Competition test F1: 85-90%
+**Important Caveats**:
+1. **Generalization gap is fundamental**: Deepfake-Eval-2024 shows 45-50% AUC drop on real-world data
+2. **Fine-tuning helps but doesn't eliminate gap**: Even after domain adaptation, significant gaps persist
+3. **Competition test set is unknown domain**: May contain generation methods, compression levels, or artifacts not seen in training data
+4. **Cross-dataset validation is proxy, not guarantee**: Celeb-DF performance does not guarantee similar performance on competition data
+5. **Image models show lowest adaptation**: Only 15.6% improvement after fine-tuning in Deepfake-Eval-2024
 
-### 10.2 Success Criteria
+**Risk-Adjusted Targets**:
+- **Minimum Viable Performance**: Macro F1 > 70% (functional but not competitive)
+- **Target Performance**: Macro F1 > 78% (likely competitive, realistic)
+- **Stretch Goal**: Macro F1 > 82% (award-contending, requires excellent generalization)
+- **Ceiling (theoretical)**: Macro F1 > 88% (unlikely given fundamental generalization limits)
+
+### 10.2 Success Criteria (Revised Based on Generalization Gap)
 
 **Minimum Viable Model**:
-- Macro F1 > 75% on competition test set
+- Macro F1 > 70% on competition test set (functional submission)
 - Inference completes within 3 hours
 - Reproducible results during verification
 
-**Competitive Model**:
-- Macro F1 > 82% (likely top 10%)
-- Balanced precision/recall on both classes
-- Robust to compression and unseen manipulation methods
+**Competitive Model** (Realistic Goal):
+- Macro F1 > 78% (accounting for generalization gap)
+- Balanced precision/recall on both classes (avoid >10% difference)
+- Robust to JPEG compression (quality 70-90)
+- Cross-dataset F1 > 80% during validation
 
-**Award-Winning Model**:
-- Macro F1 > 88% (likely top 3)
-- Superior generalization across all test samples
-- Novel techniques or exceptional implementation quality
+**Award-Contending Model** (Stretch Goal):
+- Macro F1 > 82% (requires exceptional generalization)
+- Superior performance across diverse manipulation methods
+- Minimal performance degradation on compressed/noisy samples
+- Novel techniques (e.g., advanced frequency analysis, consistency regularization)
+
+**Theoretical Ceiling**:
+- Macro F1 > 88% (unlikely given fundamental 45-50% generalization gap)
+- Would require breakthrough approach or very favorable test set composition
 
 ## 11. References & Resources
 
