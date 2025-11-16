@@ -1,227 +1,188 @@
-# Tasks: Deepfake Detection AI Competition Platform
+# Tasks: Deepfake Detection AI Competition Model
 
 **Input**: Design documents from `/specs/001-deepfake-detection-competition/`
-**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/model-interface.md, quickstart.md
+**Prerequisites**: plan.md (implementation strategy), spec.md (user stories), research.md (SOTA techniques), data-model.md (architecture), contracts/model-interface.md (interfaces)
 
-**Tests**: Not explicitly requested in specification - focusing on implementation and manual validation with competition sample data
+**Tests**: Test tasks are included as this is a competition submission requiring validation. Tests ensure model correctness, reproducibility, and submission format compliance.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story. This is a competition ML project, so user stories represent development phases rather than end-user features.
+**Organization**: Tasks are organized by implementation phases aligned with user stories. US1 (Model Development) and US2 (Model Submission) are the participant-facing stories we implement. US3-US6 are platform features managed by competition organizers.
 
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story this task belongs to (e.g., US1, US2)
+- **[Story]**: Which user story this task belongs to (US1, US2)
 - Include exact file paths in descriptions
 
 ## Path Conventions
 
-Single project structure with:
-- **src/**: Main source code (models, data, training, inference, utils)
-- **configs/**: YAML configuration files
-- **scripts/**: Executable Python scripts
-- **notebooks/**: Jupyter notebooks including task.ipynb
-- **data/**: Training datasets (not in git)
-- **checkpoints/**: Model weights (not in git)
+Single project structure (PyTorch deep learning):
+- `src/` for source code
+- `tests/` for test suites
+- `configs/` for configuration files
+- `scripts/` for executable scripts
+- `notebooks/` for Jupyter notebooks
 
 ---
 
-## Phase 1: Setup (Shared Infrastructure)
+## Phase 1: Setup (Project Initialization)
 
-**Purpose**: Project initialization and basic structure
+**Purpose**: Create project structure and install dependencies
 
 - [ ] T001 Create project directory structure per plan.md (src/, configs/, scripts/, notebooks/, tests/, data/, checkpoints/, logs/)
-- [ ] T002 Create requirements.txt with Python 3.9 dependencies: torch==1.13.1, torchvision==0.14.1, timm==0.9.12, opencv-python-headless==4.8.1.78, albumentations==1.3.1, pandas==2.1.4, scikit-learn==1.3.2, scipy==1.11.4, numpy==1.24.3, Pillow==10.1.0, facenet-pytorch==2.5.3, pyyaml==6.0.1, tqdm==4.66.1
-- [ ] T003 [P] Create .gitignore with exclusions: data/, checkpoints/, logs/, __pycache__/, *.pyc, .ipynb_checkpoints/, *.pth
-- [ ] T004 [P] Create README.md with project overview, setup instructions, and competition context
-- [ ] T005 [P] Create setup.py for package installation with metadata and dependencies
-- [ ] T006 [P] Initialize all src/ subdirectory __init__.py files (src/models/, src/data/, src/training/, src/inference/, src/utils/)
-- [ ] T007 Create configs/model_config.yaml with dual-branch architecture settings (spatial_branch, frequency_branch, fusion, classifier)
-- [ ] T008 [P] Create configs/training_config.yaml with hyperparameters (epochs=100, batch_size=32, lr=1e-4, optimizer=adamw, scheduler=cosine_annealing)
-- [ ] T009 [P] Create configs/inference_config.yaml with inference settings (batch_size=64, video_frames=16, use_fp16=true)
+- [ ] T002 Create requirements.txt with core dependencies (torch==1.13.1+cu118, torchvision==0.14.1+cu118, timm==0.9.12, opencv-python-headless==4.8.1.78, albumentations==1.3.1, pandas==2.1.4, scikit-learn==1.3.2, scipy==1.11.4, numpy==1.24.3, Pillow==10.1.0, facenet-pytorch==2.5.3, pyyaml==6.0.1, tqdm==4.66.1, pytest==7.4.3)
+- [ ] T003 Create setup.py for package installation
+- [ ] T004 [P] Create .gitignore for data/, checkpoints/, logs/, __pycache__, *.pyc, .ipynb_checkpoints
+- [ ] T005 [P] Create README.md with project overview and setup instructions
+- [ ] T006 [P] Create empty __init__.py files in all src/ subdirectories (src/models/, src/data/, src/training/, src/inference/, src/utils/)
+- [ ] T007 [P] Create placeholder .gitkeep files in data/, checkpoints/, logs/ directories
+- [ ] T008 Create configuration templates in configs/ (model_config.yaml, training_config.yaml, inference_config.yaml)
+- [ ] T009 Initialize git repository and make initial commit
 
 ---
 
-## Phase 2: Foundational (Blocking Prerequisites)
+## Phase 2: Foundational Infrastructure (Blocking Prerequisites)
 
-**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
+**Purpose**: Core infrastructure that MUST be complete before model development
 
-**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete. This includes data acquisition, preprocessing infrastructure, and base utilities.
 
-- [ ] T010 Implement configuration management in src/utils/config.py (load YAML, merge configs, provide Config dataclass)
-- [ ] T011 [P] Implement logging setup in src/utils/logger.py (configure logging with file and console handlers, log levels)
-- [ ] T012 [P] Implement DataPreprocessor base class in src/data/transforms.py (handle resize, normalize, augmentation for train/inference modes)
-- [ ] T013 [P] Implement FaceDetector in src/data/face_detector.py (MTCNN or RetinaFace, detect faces, crop with margin, handle no-face cases)
-- [ ] T014 [P] Implement VideoProcessor in src/data/video_processor.py (extract frames uniformly, handle fps variations, integrate face detection)
-- [ ] T015 [P] Implement MetricsCalculator in src/training/metrics.py (compute Macro F1, per-class precision/recall, confusion matrix, AUC)
-- [ ] T016 Create data/ directory structure with subdirectories: faceforensics/, dfdc/, celebdf/, sample/
+### Data Preparation (Parallel Execution Recommended)
 
-**Checkpoint**: Foundation ready - user story implementation can now begin in parallel
+- [ ] T010 [P] Create data download script for FaceForensics++ in scripts/download_faceforensics.sh (reference: https://github.com/ondyari/FaceForensics)
+- [ ] T011 [P] Create data download script for DFDC in scripts/download_dfdc.sh (reference: https://ai.facebook.com/datasets/dfdc/)
+- [ ] T012 [P] Create data download script for Celeb-DF in scripts/download_celebdf.sh (reference: https://github.com/yuezunli/celeb-deepfakeforensics)
+- [ ] T013 Implement FaceDetector class in src/data/face_detector.py (RetinaFace backend, detect_faces, crop_face, detect_and_crop methods per contracts/model-interface.md)
+- [ ] T014 Implement VideoProcessor class in src/data/video_processor.py (extract_frames with uniform sampling, process_video methods per contracts/model-interface.md)
+- [ ] T015 Create data preprocessing script in scripts/preprocess_data.py (face detection + cropping for all datasets, save to processed/ subdirectories)
+
+### Core Utilities
+
+- [ ] T016 [P] Implement configuration loader in src/utils/config.py (load_config, save_config, merge_configs functions for YAML files)
+- [ ] T017 [P] Implement logging setup in src/utils/logger.py (setup_logger with file and console handlers, format: timestamp, level, message)
+
+### Data Pipeline
+
+- [ ] T018 Implement DeepfakeDataset class in src/data/dataset.py (PyTorch Dataset with __init__, __len__, __getitem__, supports both image and video inputs per contracts/model-interface.md)
+- [ ] T019 Implement data augmentation transforms in src/data/transforms.py (AlbumentationsTransforms wrapper: horizontal flip, rotation, color jitter, JPEG compression, Gaussian noise/blur per research.md)
+- [ ] T020 Implement DataPreprocessor class in src/data/transforms.py (__call__ method for normalization, resize to 224x224, tensor conversion per contracts/model-interface.md)
+
+### Metrics and Loss Functions
+
+- [ ] T021 [P] Implement MetricsCalculator in src/training/metrics.py (compute_macro_f1, compute_all_metrics static methods per contracts/model-interface.md, print_metrics_report)
+- [ ] T022 [P] Implement Soft F1 Loss in src/training/losses.py (soft_f1_loss function per research.md lines 270-298, differentiable approximation for binary classification)
+- [ ] T023 [P] Implement Focal Loss in src/training/losses.py (FocalLoss class with gamma=2.0, alpha=0.25 per research.md)
+- [ ] T024 Implement CombinedLoss in src/training/losses.py (combines CrossEntropyLoss, FocalLoss, SoftF1Loss with configurable weights per contracts/model-interface.md)
+
+**Checkpoint**: Foundation ready - model development can now begin
 
 ---
 
 ## Phase 3: User Story 1 - Model Development and Training (Priority: P1) 🎯 MVP
 
-**Goal**: Develop and train a baseline deepfake detection model that can classify images and videos as Real (0) or Fake (1) with local validation
+**Goal**: Develop and train a dual-branch deepfake detection model achieving >80% Macro F1-score on cross-dataset validation
 
-**Independent Test**: Download competition sample data (7 fake images, 5 fake videos), train baseline EfficientNet-B4 model on FaceForensics++ dataset, validate locally on sample data, verify model outputs binary predictions and achieves >85% accuracy on FF++ test set
+**Independent Test**: Train model on FaceForensics++ and DFDC, validate on Celeb-DF, achieve Macro F1 >80% and verify predictions output correct format (0 for Real, 1 for Fake)
 
-### Implementation for User Story 1
+### Tests for User Story 1
 
-**Models & Architecture:**
-- [ ] T017 [P] [US1] Implement SpatialBranch in src/models/spatial_branch.py (EfficientNet-B4 backbone from timm, Vision Transformer encoder with 4 layers/8 heads, output 512-dim features)
-- [ ] T018 [P] [US1] Implement FrequencyBranch in src/models/frequency_branch.py (FFT/DCT transform, amplitude/phase spectrum processing, conv layers, output 512-dim features)
-- [ ] T019 [P] [US1] Implement FusionLayer in src/models/fusion_layer.py (self-attention mechanism with 4 heads, combine spatial+frequency features into 1024-dim)
-- [ ] T020 [US1] Implement DeepfakeDetector in src/models/deepfake_detector.py (integrate spatial+frequency branches, fusion layer, classifier head, forward/predict/extract_features methods per contracts/model-interface.md)
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-**Data Processing:**
-- [ ] T021 [P] [US1] Implement DeepfakeDataset in src/data/dataset.py (PyTorch Dataset for images/videos, load labels, apply transforms, handle multi-dataset sampling with weights)
-- [ ] T022 [US1] Extend DataPreprocessor in src/data/transforms.py with training augmentations (horizontal flip, rotation, color jitter, Gaussian blur/noise, JPEG compression per research.md recommendations)
-- [ ] T023 [US1] Create data preprocessing script in scripts/preprocess_data.py (download datasets instructions, face extraction, organize into real/fake directories, save preprocessed data)
+- [ ] T025 [P] [US1] Unit test for SpatialBranch forward pass in tests/unit/test_models.py (test input shape (4, 3, 224, 224) → output shape (4, 512))
+- [ ] T026 [P] [US1] Unit test for FrequencyBranch forward pass in tests/unit/test_models.py (test FFT computation, output shape (4, 512))
+- [ ] T027 [P] [US1] Unit test for FusionLayer in tests/unit/test_models.py (test concatenation + attention, input (4, 512) + (4, 512) → output (4, 512))
+- [ ] T028 [P] [US1] Unit test for DeepfakeDetector in tests/unit/test_models.py (test end-to-end forward pass, extract_features method)
+- [ ] T029 [P] [US1] Unit test for DataPreprocessor in tests/unit/test_data.py (test normalization, resize, tensor conversion)
+- [ ] T030 [P] [US1] Unit test for MetricsCalculator in tests/unit/test_metrics.py (test compute_macro_f1 with known inputs/outputs)
+- [ ] T031 [P] [US1] Unit test for loss functions in tests/unit/test_metrics.py (test SoftF1Loss, FocalLoss, CombinedLoss with synthetic data)
+- [ ] T032 [US1] Integration test for training pipeline in tests/integration/test_training.py (test train_epoch, validate methods with small dataset)
+- [ ] T033 [US1] Integration test for data loading in tests/integration/test_data.py (test DeepfakeDataset with real files, DataLoader batching)
 
-**Training Components:**
-- [ ] T024 [P] [US1] Implement CombinedLoss in src/training/losses.py (Cross-Entropy + Focal Loss + differentiable Macro F1 loss, weights: 0.5/0.3/0.2)
-- [ ] T025 [P] [US1] Implement Trainer in src/training/trainer.py (training loop, validation, metrics tracking, checkpoint saving, early stopping based on Macro F1)
-- [ ] T026 [US1] Create training script in scripts/train.py (load config, initialize model, setup data loaders with balanced sampling, train with warmup/main/fine-tuning phases, save best checkpoint)
+### Model Architecture Implementation
 
-**Validation & Checkpoints:**
-- [ ] T027 [US1] Implement checkpoint management in src/training/trainer.py (save model state, optimizer state, epoch, metrics, config, timestamp per data-model.md schema)
-- [ ] T028 [US1] Create evaluation script in scripts/evaluate.py (load checkpoint, run inference on validation set, compute all metrics, generate classification report)
-- [ ] T029 [US1] Download FaceForensics++ dataset to data/faceforensics/ (real and fake videos with compression levels c0/c23/c40)
-- [ ] T030 [US1] Train baseline EfficientNet-B4 model on FaceForensics++ for 100 epochs with config from configs/training_config.yaml
-- [ ] T031 [US1] Validate baseline model performance (accuracy >85% on FF++ test set, Macro F1 >83%, save best checkpoint to checkpoints/baseline_ffpp.pth)
+- [ ] T034 [P] [US1] Implement SpatialBranch in src/models/spatial_branch.py (EfficientNet-B4 backbone + Vision Transformer encoder per data-model.md lines 134-176, output 512-dim features)
+- [ ] T035 [P] [US1] Implement FrequencyBranch in src/models/frequency_branch.py (FFT transformation + CNN processing per data-model.md lines 178-218, output 512-dim features, handle amplitude and phase spectra)
+- [ ] T036 [US1] Implement FusionLayer in src/models/fusion_layer.py (hierarchical cross-modal attention per data-model.md lines 220-276, input 1024-dim → output 512-dim)
+- [ ] T037 [US1] Implement DeepfakeDetector main model in src/models/deepfake_detector.py (integrate SpatialBranch + FrequencyBranch + FusionLayer, forward, predict, extract_features methods per contracts/model-interface.md)
 
-**Checkpoint**: At this point, User Story 1 should be fully functional - a trained model that can detect deepfakes in images and videos with local validation
+### Training Infrastructure
+
+- [ ] T038 [US1] Implement Trainer class in src/training/trainer.py (train, train_epoch, validate, save_checkpoint methods per contracts/model-interface.md, support mixed precision, early stopping on Macro F1)
+- [ ] T039 [US1] Implement ModelLoader in src/inference/model_loader.py (load_checkpoint, load_config static methods per contracts/model-interface.md)
+- [ ] T040 [US1] Create training script in scripts/train.py (parse args, load config, create data loaders, instantiate model, run training loop, save checkpoints)
+- [ ] T041 [US1] Create evaluation script in scripts/evaluate.py (load checkpoint, run inference on validation set, compute and print all metrics)
+
+### Model Training and Validation
+
+- [ ] T042 [US1] Create baseline training config in configs/baseline_config.yaml (EfficientNet-B4 only, 100 epochs, batch size 32, lr 1e-4, AdamW optimizer, cosine annealing scheduler)
+- [ ] T043 [US1] Train baseline model on FaceForensics++ using scripts/train.py with baseline_config.yaml (target: >85% accuracy, save best checkpoint to checkpoints/baseline_best.pth)
+- [ ] T044 [US1] Validate baseline model on FaceForensics++ test set using scripts/evaluate.py (verify Macro F1 >80%, per-class precision/recall balanced)
+- [ ] T045 [US1] Create hybrid training config in configs/hybrid_config.yaml (dual-branch architecture, combined loss with weights [0.5 CE, 0.3 Focal, 0.2 F1], same training params as baseline)
+- [ ] T046 [US1] Train hybrid model on FaceForensics++ + DFDC using scripts/train.py with hybrid_config.yaml (multi-dataset training, balanced sampling, target: >90% internal F1, save to checkpoints/hybrid_best.pth)
+- [ ] T047 [US1] Cross-dataset validation: evaluate hybrid model on Celeb-DF using scripts/evaluate.py (target: >80% Macro F1, verify generalization, document results in logs/)
+- [ ] T048 [US1] Fine-tune hybrid model with F1-optimized loss schedule (increase F1 loss weight to 0.4, reduce CE to 0.4, Focal 0.2, fine-tune for 10 epochs, save to checkpoints/hybrid_finetuned.pth)
+- [ ] T049 [US1] Run compression robustness test: evaluate on JPEG-compressed Celeb-DF (quality 70-90) using scripts/evaluate.py (verify performance degradation <5%)
+
+**Checkpoint**: Model trained and validated independently, achieves target Macro F1 >80% on cross-dataset evaluation
 
 ---
 
 ## Phase 4: User Story 2 - Model Submission and Automated Evaluation (Priority: P1)
 
-**Goal**: Create inference pipeline and submission notebook (task.ipynb) that packages the trained model for competition submission, processes test data from ./data/ directory, generates submission.csv, and enables submission via aifactory library
+**Goal**: Package trained model into task.ipynb for competition submission, ensure inference completes within 3 hours, output correct submission.csv format
 
-**Independent Test**: Load trained model checkpoint, run inference on competition sample data in ./data/, verify submission.csv format (filename, label columns), validate Macro F1 calculation matches expected results, test task.ipynb executes end-to-end without errors
+**Independent Test**: Run task.ipynb locally on sample data, verify submission.csv generated with correct format, validate all files processed within time limit
 
-### Implementation for User Story 2
+### Tests for User Story 2
 
-**Inference Components:**
-- [ ] T032 [P] [US2] Implement ModelLoader in src/inference/model_loader.py (load checkpoint file, restore model weights, handle config loading, set eval mode, move to GPU)
-- [ ] T033 [US2] Implement InferenceEngine in src/inference/inference_engine.py (process images and videos, batch inference, frame aggregation for videos, generate submission.csv per contracts/model-interface.md)
-- [ ] T034 [US2] Add video frame aggregation methods to InferenceEngine (average_logits, max_confidence, majority_vote, configurable via inference_config.yaml)
+- [ ] T050 [P] [US2] Unit test for InferenceEngine.process_image in tests/unit/test_inference.py (test single image inference, output label in {0, 1})
+- [ ] T051 [P] [US2] Unit test for InferenceEngine.process_video in tests/unit/test_inference.py (test video frame extraction + aggregation, single label output)
+- [ ] T052 [P] [US2] Unit test for submission CSV validation in tests/unit/test_inference.py (test validate_submission_format from quickstart.md lines 650-687)
+- [ ] T053 [US2] Integration test for full inference pipeline in tests/integration/test_inference.py (test run_inference on sample data directory, verify submission.csv format and completeness)
+- [ ] T054 [US2] Contract test for submission format in tests/contract/test_submission.py (test CSV has exactly 2 columns [filename, label], all labels in {0, 1}, all filenames have extensions, no null values per quickstart.md)
 
-**Inference Optimization:**
-- [ ] T035 [P] [US2] Implement mixed precision (FP16) support in InferenceEngine for 2x speedup
-- [ ] T036 [P] [US2] Implement batch processing in InferenceEngine (process multiple images in parallel with batch_size=64, video frames with batch_size=16)
-- [ ] T037 [US2] Add early stopping for video inference (confidence thresholding to skip remaining frames if prediction is confident)
+### Inference Pipeline Implementation
 
-**Scripts & Validation:**
-- [ ] T038 [US2] Create inference script in scripts/inference.py (CLI to run inference on data directory, specify checkpoint path, output submission.csv, display progress with tqdm)
-- [ ] T039 [P] [US2] Create submission validation script in scripts/test_submission.py (verify CSV format: columns [filename, label], values are 0/1, no nulls, all filenames have extensions)
-- [ ] T040 [US2] Download competition sample data to data/sample/ (7 fake images, 5 fake videos from competition page)
-- [ ] T041 [US2] Run inference on sample data with baseline model, validate submission.csv format passes all checks in test_submission.py
-- [ ] T042 [US2] Benchmark inference time on ~1000 simulated test samples to ensure <2 hour completion (extrapolate to 10K samples)
+- [ ] T055 [US2] Implement InferenceEngine in src/inference/inference_engine.py (run_inference, process_image, process_video, aggregate_frame_predictions methods per contracts/model-interface.md, support batch processing, FP16, video frame sampling)
+- [ ] T056 [US2] Create inference script in scripts/inference.py (load checkpoint, create InferenceEngine, run inference on ./data/, save to submission.csv, print summary statistics)
+- [ ] T057 [US2] Create submission validation script in scripts/test_submission.py (implement validate_and_fix_submission, create_submission_with_validation per quickstart.md lines 689-841)
 
-**Submission Notebook:**
-- [ ] T043 [US2] Create task.ipynb in notebooks/ with cells: 1) pip install dependencies (torch, timm, opencv, etc.), 2) import src modules, 3) load model checkpoint, 4) run InferenceEngine on ./data/, 5) save submission.csv, 6) display sample results
-- [ ] T044 [US2] Add aifactory.score.submit() call to task.ipynb with placeholder for competition key (CUDA 11.8 environment)
-- [ ] T045 [US2] Test task.ipynb executes end-to-end locally (kernel restart, run all cells, verify submission.csv created, check for errors)
-- [ ] T046 [US2] Add documentation to task.ipynb (markdown cells explaining model architecture, preprocessing, inference process per competition verification requirements)
-- [ ] T047 [US2] Verify reproducibility by running task.ipynb 3 times and comparing submission.csv outputs (should be identical with fixed random seeds)
+### Submission Notebook Creation
 
-**Checkpoint**: At this point, User Story 2 complete - inference pipeline ready, task.ipynb submittable to competition, baseline submission validated
+- [ ] T058 [US2] Create task.ipynb in notebooks/ (Cell 1: pip install all dependencies with exact versions, Cell 2: import all modules, Cell 3: load model checkpoint from ./checkpoints/, Cell 4: initialize InferenceEngine)
+- [ ] T059 [US2] Add inference execution to task.ipynb (Cell 5: run inference on ./data/ directory, Cell 6: save results to submission.csv, Cell 7: validate submission format, Cell 8: print summary with Real/Fake counts)
+- [ ] T060 [US2] Add error handling to task.ipynb (try-except blocks for file I/O, model loading, inference, CSV writing, print error traceback on failure)
+- [ ] T061 [US2] Test task.ipynb locally with competition sample data (download 7 fake images + 5 fake videos per spec.md FR-001, run notebook end-to-end, verify submission.csv generated correctly)
+- [ ] T062 [US2] Benchmark inference time on simulated test set (~10,000 samples) (create mock dataset with mixed images/videos, measure total inference time, verify <2 hours for safety margin per plan.md)
+- [ ] T063 [US2] Optimize inference for speed (enable FP16, adjust batch size to 64, reduce video frames to 16 if needed, implement fallback for OOM per plan.md lines 325-401)
+- [ ] T064 [US2] Test reproducibility: run task.ipynb 3 times (fix random seeds in notebook, verify submission.csv identical across runs, document seed values)
 
----
+### Submission Package Preparation
 
-## Phase 5: Hybrid Model Enhancement (Extends US1 for Better Performance)
+- [ ] T065 [US2] Package model checkpoint in notebooks/checkpoints/ (copy best hybrid model, ensure file size <500MB if possible, document model architecture in README)
+- [ ] T066 [US2] Add preprocessing documentation to task.ipynb (document face detection settings, image resize dimensions, normalization values, frame sampling strategy in markdown cells)
+- [ ] T067 [US2] Create submission checklist in task.ipynb (markdown cell: verify dependencies installed, checkpoint loaded, inference runs, submission.csv validated, reproducibility tested)
+- [ ] T068 [US2] Final validation: run complete submission simulation (clean environment, execute task.ipynb from scratch, verify all outputs correct, time execution)
 
-**Goal**: Upgrade from baseline to dual-branch hybrid architecture with frequency domain analysis, train on multiple datasets for better generalization, optimize for Macro F1 >82%
-
-**Independent Test**: Train hybrid model on FF++ + DFDC + Celeb-DF, validate cross-dataset performance (train on FF++/DFDC, test on Celeb-DF), achieve Macro F1 >80% on unseen dataset
-
-### Implementation for Hybrid Model
-
-**Multi-Dataset Training:**
-- [ ] T048 [US1] Download DFDC dataset to data/dfdc/ (~470GB, organize train/val splits with real/fake subdirectories)
-- [ ] T049 [US1] Download Celeb-DF v2 dataset to data/celebdf/ (real and fake celebrity videos)
-- [ ] T050 [US1] Update DeepfakeDataset in src/data/dataset.py to support multi-dataset loading with configurable weights (FF++=0.3, DFDC=0.5, Celeb-DF=0.2)
-- [ ] T051 [US1] Implement balanced sampling strategy in dataset to ensure equal Real/Fake representation per batch
-
-**Advanced Training:**
-- [ ] T052 [US1] Update training_config.yaml with multi-dataset paths and sampling weights
-- [ ] T053 [US1] Implement cross-dataset validation in scripts/train.py (train on FF++/DFDC, validate on Celeb-DF held-out set)
-- [ ] T054 [US1] Add consistency regularization to CombinedLoss in src/training/losses.py (enforce feature consistency across augmentations per research.md CORE method)
-- [ ] T055 [US1] Train hybrid dual-branch model on all three datasets for 100 epochs with cross-dataset validation
-- [ ] T056 [US1] Monitor and log per-class metrics (precision/recall for Real and Fake separately) to ensure balanced performance
-- [ ] T057 [US1] Validate hybrid model achieves cross-dataset Macro F1 >80% and save best checkpoint to checkpoints/hybrid_multi_dataset.pth
-
-**Checkpoint**: Hybrid model trained with superior generalization, ready for final optimization
+**Checkpoint**: Submission package (task.ipynb + checkpoints) ready for competition upload, all validations passed
 
 ---
 
-## Phase 6: Final Optimization & Submission Preparation
+## Phase 5: Polish & Cross-Cutting Concerns
 
-**Goal**: Optimize inference speed, finalize submission notebook with best model, perform final validation, prepare for competition submission
+**Purpose**: Final improvements and documentation for competition submission
 
-**Independent Test**: Run inference on 10K simulated test samples, verify completion <2 hours, validate submission.csv format, test task.ipynb reproducibility 3+ times
-
-### Implementation for Final Submission
-
-**Inference Speed Optimization:**
-- [ ] T058 [US2] Profile inference pipeline with cProfile to identify bottlenecks (model forward pass, face detection, I/O)
-- [ ] T059 [US2] Optimize video frame sampling in VideoProcessor (reduce to 16 frames if needed, parallel frame extraction)
-- [ ] T060 [US2] Implement gradient checkpointing in DeepfakeDetector if memory is constraint (trade compute for memory)
-- [ ] T061 [US2] Add DataLoader prefetching in InferenceEngine (num_workers=8, pin_memory=True, prefetch_factor=2)
-- [ ] T062 [US2] Test inference speed on 10,000 mixed samples (70% images, 30% videos), verify <2 hour completion, document timing breakdown
-
-**Submission Finalization:**
-- [ ] T063 [US2] Update task.ipynb to use best hybrid model checkpoint (checkpoints/hybrid_multi_dataset.pth)
-- [ ] T064 [US2] Add fallback handling in task.ipynb for face detection failures (use center crop if no face detected)
-- [ ] T065 [US2] Add OOM error handling in task.ipynb (reduce batch size to 32 if OOM occurs, reduce video frames to 8)
-- [ ] T066 [US2] Document all preprocessing steps in task.ipynb markdown cells (face detection method, margin ratio, resizing, normalization values for verification reproducibility)
-- [ ] T067 [US2] Fix all random seeds in task.ipynb (python, numpy, torch.manual_seed, torch.cuda.manual_seed_all) for reproducibility
-- [ ] T068 [US2] Test task.ipynb on competition sample data, verify submission.csv matches expected format and predictions are reasonable
-- [ ] T069 [US2] Run task.ipynb 5 times to verify 100% reproducibility (all submission.csv files should be identical)
-
-**Pre-Submission Validation:**
-- [ ] T070 [US2] Create submission checklist document (model trained on multi-datasets ✓, validation F1 >80% ✓, inference <2hrs ✓, submission.csv validated ✓, task.ipynb tested ✓, dependencies listed ✓, reproducible ✓)
-- [ ] T071 [US2] Validate checkpoint file size is reasonable for submission (<500MB, compress if needed)
-- [ ] T072 [US2] Test task.ipynb in clean environment (fresh conda env, install from requirements only, verify no missing dependencies)
-- [ ] T073 [US2] Retrieve CUDA 11.8 competition key from AI Factory My Page > Activity History > Competition
-- [ ] T074 [US2] Perform final dry-run submission test (execute all notebook cells, time execution, verify output)
-
-**Checkpoint**: Final submission package ready - task.ipynb validated, model optimized, reproducibility confirmed, ready to submit before Nov 20 deadline
-
----
-
-## Phase 7: Polish & Cross-Cutting Concerns
-
-**Purpose**: Improvements that affect multiple components, documentation, and final preparations
-
-**Documentation & Code Quality:**
-- [ ] T075 [P] Add docstrings to all public methods in src/models/ following Google style (Args, Returns, Raises sections)
-- [ ] T076 [P] Add docstrings to all public methods in src/data/, src/training/, src/inference/ following Google style
-- [ ] T077 [P] Add type hints to all function signatures across src/ for better code clarity
-- [ ] T078 [P] Update README.md with detailed sections: installation, dataset download instructions, training guide, inference guide, submission guide, expected performance
-- [ ] T079 [P] Create notebooks/eda.ipynb for exploratory data analysis (dataset statistics, sample visualizations, label distributions, quality analysis)
-- [ ] T080 [P] Create notebooks/experiments.ipynb for tracking experiments (different architectures, hyperparameters, augmentation strategies, results comparison)
-
-**Testing & Validation:**
-- [ ] T081 [P] Create unit tests in tests/unit/test_models.py (test forward pass shapes, test each branch independently, test fusion output dimensions)
-- [ ] T082 [P] Create unit tests in tests/unit/test_data.py (test face detection, test video frame extraction, test dataset loading, test augmentations)
-- [ ] T083 [P] Create unit tests in tests/unit/test_metrics.py (test Macro F1 calculation with known inputs, test per-class metrics, test edge cases)
-- [ ] T084 [P] Create integration test in tests/integration/test_training.py (end-to-end training on small dataset for 2 epochs, verify checkpoint saved, metrics tracked)
-- [ ] T085 [P] Create integration test in tests/integration/test_inference.py (end-to-end inference on sample data, verify submission.csv created with correct format)
-- [ ] T086 Run all tests with pytest, verify >80% pass rate (100% ideal but competition focus is on model performance)
-
-**Performance Monitoring:**
-- [ ] T087 Create logging for training progress (epoch, loss, metrics, learning rate, time per epoch) saved to logs/training.log
-- [ ] T088 Add TensorBoard logging in Trainer (loss curves, metrics, learning rate schedule) for visualization
-- [ ] T089 Create performance comparison table (baseline vs hybrid, single-dataset vs multi-dataset, different backbones) in README.md
-
-**Final Checks:**
-- [ ] T090 Validate all config files are correct and match current best settings (model_config.yaml, training_config.yaml, inference_config.yaml)
-- [ ] T091 Clean up code: remove debug prints, commented code, unused imports, format with black/autopep8
-- [ ] T092 Verify .gitignore excludes all large files (data/, checkpoints/, logs/) and temporary files
-- [ ] T093 Final git commit with message: "Final submission ready for competition - hybrid model with Macro F1 >80%"
-- [ ] T094 Create backup of entire project directory and task.ipynb before submission
+- [ ] T069 [P] Update README.md with complete setup instructions (environment setup, data download, training commands, inference commands, submission preparation)
+- [ ] T070 [P] Create EDA notebook in notebooks/eda.ipynb (visualize dataset statistics, class distribution, sample images/videos, face detection results)
+- [ ] T071 [P] Create experiments tracking notebook in notebooks/experiments.ipynb (log training runs, compare baseline vs hybrid, document hyperparameter tuning, visualize learning curves)
+- [ ] T072 Document model architecture in docs/architecture.md (create docs/ directory, describe dual-branch design, include architecture diagram from data-model.md, explain design decisions)
+- [ ] T073 Document training procedure in docs/training.md (describe dataset preparation, augmentation strategy, loss function schedule, validation protocol, checkpoint selection criteria)
+- [ ] T074 [P] Add code comments and docstrings to all src/ modules (ensure all classes and functions have docstrings per contracts/model-interface.md section 10, add type hints)
+- [ ] T075 Run full test suite with pytest (execute pytest tests/ -v, ensure all tests pass, aim for >80% code coverage on critical modules)
+- [ ] T076 Profile memory usage during inference (use torch.cuda.max_memory_allocated(), verify peak usage <20GB for L4 GPU per plan.md OOM mitigation)
+- [ ] T077 [P] Code cleanup and refactoring (remove debug print statements, unused imports, commented-out code, ensure PEP 8 compliance)
+- [ ] T078 Create quickstart validation script in scripts/validate_quickstart.py (verify all steps in quickstart.md work, test sample data download, training command, inference command, submission validation)
+- [ ] T079 Final submission preparation: compress task.ipynb and checkpoints/ directory (ensure no .git folders, no unnecessary files, verify total size reasonable per spec.md FR-019)
+- [ ] T080 Document known limitations and future improvements in docs/limitations.md (generalization gap notes per research.md, compression robustness, OOM edge cases, potential optimizations)
 
 ---
 
@@ -230,232 +191,185 @@ Single project structure with:
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies - can start immediately
-- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
-- **User Story 1 (Phase 3)**: Depends on Foundational phase completion - Core model development
-- **User Story 2 (Phase 4)**: Depends on US1 having a trained model checkpoint - Inference & submission
-- **Hybrid Enhancement (Phase 5)**: Extends US1 - Improves model performance
-- **Final Optimization (Phase 6)**: Depends on Phase 5 best model - Submission preparation
-- **Polish (Phase 7)**: Can run in parallel with development or at the end - Documentation & testing
+- **Foundational (Phase 2)**: Depends on Setup (Phase 1) completion - BLOCKS all user stories
+- **User Story 1 (Phase 3)**: Depends on Foundational (Phase 2) completion - Core model development
+- **User Story 2 (Phase 4)**: Depends on User Story 1 (Phase 3) completion - Requires trained model
+- **Polish (Phase 5)**: Depends on User Stories 1 and 2 completion - Final touches
 
-### User Story Dependencies
+### Critical Path
 
-- **User Story 1 (Model Development)**: Foundation only - No dependencies on other stories
-- **User Story 2 (Submission)**: Depends on US1 trained model - Can start once checkpoint exists
-- **User Story 3-6**: Not implemented (team management, CUDA env selection, timeline, rules are competition platform features, not our model implementation)
+1. **Setup** (T001-T009) → **Foundation** (T010-T024) → **US1 Tests** (T025-T033) → **US1 Models** (T034-T037) → **US1 Training** (T038-T049) → **US2 Tests** (T050-T054) → **US2 Inference** (T055-T057) → **US2 Submission** (T058-T068) → **Polish** (T069-T080)
 
-### Within Each User Story
+### Within Each Phase
 
-**User Story 1 (Model Development):**
-1. Models can be implemented in parallel (T017-T019)
-2. DeepfakeDetector integrates all models (T020 depends on T017-T019)
-3. Data processing in parallel (T021-T023)
-4. Training components in parallel (T024-T025)
-5. Training script uses all components (T026 depends on T020-T025)
-6. Dataset download and training (T029-T031 sequential)
+**Phase 2 - Foundational**:
+- T010, T011, T012 can run in parallel (data downloads)
+- T016, T017 can run in parallel (utilities)
+- T021, T022, T023 can run in parallel (loss functions)
+- T013, T014 must complete before T015 (preprocessing needs face detection and video processing)
+- T018, T019, T020 depend on T013, T014
 
-**User Story 2 (Submission):**
-1. Inference components can be in parallel (T032-T034)
-2. Optimizations can be in parallel (T035-T037)
-3. Scripts and validation (T038-T042 mostly sequential)
-4. Notebook creation and testing (T043-T047 sequential)
+**Phase 3 - User Story 1**:
+- T025-T033 (tests) can all run in parallel after writing
+- T034, T035 can run in parallel (independent branches)
+- T036 depends on T034, T035 (fusion needs both branches)
+- T037 depends on T034, T035, T036 (main model integrates all)
+- T038, T039, T040, T041 can proceed once T037 is done
+- T042-T049 (training) are sequential
 
-**Phase 5 (Hybrid Model):**
-1. Dataset downloads can be in parallel (T048-T049)
-2. Dataset updates (T050-T051)
-3. Training configuration and execution (T052-T057 mostly sequential)
+**Phase 4 - User Story 2**:
+- T050, T051, T052 can run in parallel (unit tests)
+- T053, T054 depend on T055 (integration tests need InferenceEngine)
+- T055, T056, T057 are sequential
+- T058-T068 (notebook development) are mostly sequential
 
-**Phase 6 (Final Optimization):**
-1. Profiling and optimizations (T058-T062 mostly sequential)
-2. Submission updates (T063-T069 mostly sequential)
-3. Validation (T070-T074 mostly sequential)
-
-**Phase 7 (Polish):**
-- Most tasks marked [P] can run in parallel (documentation, testing, logging)
+**Phase 5 - Polish**:
+- T069, T070, T071, T074, T077 can run in parallel (documentation and cleanup)
+- T075, T076, T078 are validation tasks that can run in parallel
 
 ### Parallel Opportunities
 
-**Setup Phase:**
-- T003, T004, T005, T006, T008, T009 can all run in parallel (different files)
-
-**Foundational Phase:**
-- T011, T012, T013, T014, T015 can all run in parallel (different modules)
-
-**User Story 1 Models:**
-- T017, T018, T019 can all run in parallel (separate branch implementations)
-
-**User Story 1 Data:**
-- T021, T022, T023 can run in parallel (different aspects of data processing)
-
-**User Story 1 Training:**
-- T024, T025 can run in parallel (loss functions vs trainer class)
-
-**User Story 2 Inference:**
-- T032, T033, T034 can run in parallel if interfaces are defined
-- T035, T036, T037 can run in parallel (different optimization techniques)
-- T039 can run anytime after T038
-
-**Phase 5 Datasets:**
-- T048, T049 can run in parallel (downloading different datasets)
-
-**Phase 7 Polish:**
-- T075, T076, T077, T078, T079, T080, T081, T082, T083, T084, T085 can all run in parallel (different files/modules)
+**Setup Phase**: T004, T005, T006, T007 (4 tasks in parallel)
+**Foundational Phase**: T010-T012 (data downloads), T016-T017 (utilities), T021-T023 (losses) = 8 tasks in parallel
+**US1 Tests**: T025-T033 (9 tests in parallel)
+**US1 Models**: T034, T035 (2 branches in parallel)
+**US2 Tests**: T050-T052 (3 tests in parallel)
+**Polish Phase**: T069-T071, T074, T077 (5 tasks in parallel)
 
 ---
 
-## Parallel Example: User Story 1 - Model Development
+## Parallel Execution Examples
+
+### Parallel Example: Foundational Phase Data Downloads
 
 ```bash
-# Launch all model branch implementations in parallel:
-Task T017: "Implement SpatialBranch in src/models/spatial_branch.py"
-Task T018: "Implement FrequencyBranch in src/models/frequency_branch.py"
-Task T019: "Implement FusionLayer in src/models/fusion_layer.py"
-# Wait for completion, then integrate in DeepfakeDetector (T020)
+# Launch all data download tasks together:
+Task: "Create data download script for FaceForensics++ in scripts/download_faceforensics.sh"
+Task: "Create data download script for DFDC in scripts/download_dfdc.sh"
+Task: "Create data download script for Celeb-DF in scripts/download_celebdf.sh"
 
-# Launch all data processing tasks in parallel:
-Task T021: "Implement DeepfakeDataset in src/data/dataset.py"
-Task T022: "Extend DataPreprocessor in src/data/transforms.py"
-Task T023: "Create preprocessing script in scripts/preprocess_data.py"
-
-# Launch training components in parallel:
-Task T024: "Implement CombinedLoss in src/training/losses.py"
-Task T025: "Implement Trainer in src/training/trainer.py"
+# Execute downloads in parallel (background processes):
+bash scripts/download_faceforensics.sh &
+bash scripts/download_dfdc.sh &
+bash scripts/download_celebdf.sh &
+wait  # Wait for all to complete
 ```
 
-## Parallel Example: User Story 2 - Submission
+### Parallel Example: User Story 1 Tests
 
 ```bash
-# Launch inference components in parallel:
-Task T032: "Implement ModelLoader in src/inference/model_loader.py"
-Task T033: "Implement InferenceEngine in src/inference/inference_engine.py"
+# Launch all unit tests for US1 together:
+Task: "Unit test for SpatialBranch in tests/unit/test_models.py"
+Task: "Unit test for FrequencyBranch in tests/unit/test_models.py"
+Task: "Unit test for FusionLayer in tests/unit/test_models.py"
+Task: "Unit test for DeepfakeDetector in tests/unit/test_models.py"
+Task: "Unit test for DataPreprocessor in tests/unit/test_data.py"
+Task: "Unit test for MetricsCalculator in tests/unit/test_metrics.py"
+Task: "Unit test for loss functions in tests/unit/test_metrics.py"
 
-# Launch optimizations in parallel:
-Task T035: "Implement FP16 support in InferenceEngine"
-Task T036: "Implement batch processing in InferenceEngine"
-Task T037: "Add early stopping for video inference"
+# Run with pytest in parallel mode:
+pytest tests/unit/ -n auto  # Uses all CPU cores
+```
 
-# Launch validation scripts in parallel:
-Task T038: "Create inference script in scripts/inference.py"
-Task T039: "Create submission validation script in scripts/test_submission.py"
+### Parallel Example: User Story 1 Model Branches
+
+```bash
+# Implement spatial and frequency branches in parallel:
+Task: "Implement SpatialBranch in src/models/spatial_branch.py"
+Task: "Implement FrequencyBranch in src/models/frequency_branch.py"
+
+# Two developers can work simultaneously on different files
 ```
 
 ---
 
 ## Implementation Strategy
 
-### MVP First (Focus on Submission)
+### MVP First (User Stories 1 and 2)
 
-1. **Phase 1**: Setup project structure (T001-T009)
-2. **Phase 2**: Foundational infrastructure (T010-T016)
-3. **Phase 3**: User Story 1 - Baseline Model (T017-T031)
-   - **STOP and VALIDATE**: Train baseline, verify >85% accuracy on FF++
-4. **Phase 4**: User Story 2 - Submission Pipeline (T032-T047)
-   - **STOP and VALIDATE**: Test task.ipynb, verify submission.csv format
-5. **FIRST SUBMISSION READY**: Can submit baseline model to competition
+1. Complete Phase 1: Setup (T001-T009)
+2. Complete Phase 2: Foundational (T010-T024) - **CRITICAL checkpoint**
+3. Complete Phase 3: User Story 1 (T025-T049) - **Model trained and validated**
+4. Complete Phase 4: User Story 2 (T050-T068) - **Submission package ready**
+5. **STOP and VALIDATE**: Test complete submission flow locally
+6. Submit to competition
 
-### Incremental Improvement
+### Incremental Delivery Milestones
 
-6. **Phase 5**: Hybrid Model Enhancement (T048-T057)
-   - **STOP and VALIDATE**: Verify cross-dataset F1 >80%
-7. **Phase 6**: Final Optimization (T058-T074)
-   - **STOP and VALIDATE**: Test inference speed <2 hours, reproducibility 100%
-8. **FINAL SUBMISSION**: Submit optimized hybrid model
-9. **Phase 7**: Polish & Documentation (T075-T094)
-   - Ongoing improvements, testing, documentation
+1. **Milestone 1**: Foundation Ready (after T024)
+   - Project structure complete
+   - Data pipeline functional
+   - Training infrastructure ready
+   - Can begin model development
 
-### Solo Developer Strategy
+2. **Milestone 2**: Baseline Model Trained (after T044)
+   - Working baseline model
+   - >85% accuracy on FaceForensics++
+   - Validates training pipeline works
+   - Can proceed to hybrid architecture
 
-**Week 1-2 (Phase 3 - Baseline Model):**
-- Days 1-2: Setup + Foundational (T001-T016)
-- Days 3-7: Model development (T017-T026)
-- Days 8-14: Dataset prep, training, validation (T027-T031)
+3. **Milestone 3**: Hybrid Model Trained (after T047)
+   - Dual-branch model complete
+   - >80% cross-dataset Macro F1
+   - Validates generalization
+   - Can proceed to submission preparation
 
-**Week 3-4 (Phase 4 - Submission):**
-- Days 15-17: Inference pipeline (T032-T037)
-- Days 18-21: Scripts and validation (T038-T042)
-- Days 22-28: Submission notebook (T043-T047)
+4. **Milestone 4**: Submission Ready (after T068)
+   - task.ipynb complete and tested
+   - Inference validated
+   - Format compliance verified
+   - Ready for competition upload
 
-**Week 5 (Phase 5 - Hybrid Model):**
-- Days 29-31: Download datasets (T048-T049)
-- Days 32-35: Multi-dataset training (T050-T057)
+5. **Milestone 5**: Competition Submission (after T080)
+   - All documentation complete
+   - Code cleaned and commented
+   - Final validation passed
+   - Submission uploaded
 
-**Week 6 (Phase 6 - Final Optimization):**
-- Days 36-39: Speed optimization (T058-T062)
-- Days 40-42: Submission finalization (T063-T074)
+### Time Estimates (from plan.md)
 
-**Ongoing (Phase 7 - Polish):**
-- Parallel with development or final days before submission
+- **Phase 1 (Setup)**: 1 day
+- **Phase 2 (Foundational)**: 1-2 weeks (parallel data downloads can reduce to 1 week)
+- **Phase 3 (User Story 1)**: 3-4 weeks (baseline: 2 weeks, hybrid: 1-2 weeks)
+- **Phase 4 (User Story 2)**: 1 week
+- **Phase 5 (Polish)**: 3-5 days
 
-### Parallel Team Strategy
+**Total Estimated Time**: 6 weeks (matches plan.md timeline)
 
-If multiple developers available:
+### Risk Mitigation During Implementation
 
-1. **All together**: Setup + Foundational (T001-T016)
-2. **Split work**:
-   - Developer A: Model architectures (T017-T020)
-   - Developer B: Data processing (T021-T023)
-   - Developer C: Training components (T024-T026)
-3. **Merge and train**: Integrate and train baseline (T027-T031)
-4. **Split work**:
-   - Developer A: Inference engine (T032-T037)
-   - Developer B: Scripts and validation (T038-T042)
-   - Developer C: Notebook and testing (T043-T047)
-5. **Continue in parallel**: Hybrid model, optimization, polish
+Per plan.md risk analysis:
 
----
-
-## Task Summary
-
-**Total Tasks**: 94
-
-**Tasks per Phase**:
-- Phase 1 (Setup): 9 tasks
-- Phase 2 (Foundational): 7 tasks
-- Phase 3 (User Story 1 - Model Development): 15 tasks
-- Phase 4 (User Story 2 - Submission): 16 tasks
-- Phase 5 (Hybrid Enhancement): 10 tasks
-- Phase 6 (Final Optimization): 17 tasks
-- Phase 7 (Polish): 20 tasks
-
-**Tasks per User Story**:
-- US1 (Model Development & Training): 25 tasks (Phase 3 + Phase 5)
-- US2 (Submission & Evaluation): 33 tasks (Phase 4 + Phase 6)
-- Setup/Foundation/Polish: 36 tasks
-
-**Parallel Opportunities**: 45 tasks marked [P] can run in parallel (48% of total)
-
-**Independent Test Criteria**:
-- **US1**: Trained model achieves >85% accuracy on FF++ test set with Macro F1 >83%
-- **US2**: task.ipynb executes successfully, generates valid submission.csv, reproducible results
-- **Hybrid Model**: Cross-dataset Macro F1 >80% on held-out Celeb-DF validation set
-- **Final Submission**: Inference completes in <2 hours on 10K samples, 100% reproducibility
-
-**Suggested MVP Scope**:
-- MVP 1 (Weeks 1-2): Baseline model trained and validated (Phase 1-3, Tasks T001-T031)
-- MVP 2 (Weeks 3-4): Submission pipeline ready (Phase 4, Tasks T032-T047)
-- MVP 3 (Week 5): Hybrid model with better generalization (Phase 5, Tasks T048-T057)
-- Final (Week 6): Optimized for competition submission (Phase 6, Tasks T058-T074)
-
-**Format Validation**: ✅ All tasks follow checklist format with:
-- Checkbox: `- [ ]`
-- Task ID: T001-T094 (sequential)
-- [P] marker: 45 tasks marked as parallelizable
-- [Story] label: US1 or US2 for user story tasks
-- Description: Clear action with exact file path
-- No vague tasks, all specific and executable
+- **After T024**: Run memory profiling benchmark (OOM risk mitigation)
+- **After T044**: Verify baseline accuracy >85% (if not, debug before proceeding)
+- **After T047**: Verify cross-dataset F1 >80% (if not, increase augmentation or add more data)
+- **After T062**: Verify inference time <2 hours (if not, optimize batch size, reduce frames, or use FP16)
+- **After T064**: Verify reproducibility (if fails, check random seeds and deterministic operations)
 
 ---
 
 ## Notes
 
-- All tasks include exact file paths for implementation
-- [P] tasks operate on different files with no dependencies - safe for parallel execution
-- [US1] and [US2] labels track which user story each task serves
-- Checkpoints after each phase enable independent validation
-- Can stop at any phase to validate independently
-- MVP (Phases 1-4) delivers a working submission to competition
-- Phases 5-6 improve model performance for better leaderboard placement
-- Phase 7 can be done in parallel or deferred to end for polish
-- All tasks are immediately executable by following contracts/model-interface.md and data-model.md specifications
-- Tests are minimal - focus is on model performance and competition submission
-- Validation is primarily through competition sample data and manual testing
-- Reproducibility is critical - fixed seeds, documented preprocessing, verified in task.ipynb
+- **[P] tasks**: Different files, no dependencies, can run in parallel
+- **[Story] labels**: Track tasks to user stories (US1 = Model Development, US2 = Submission)
+- **Tests first**: Write and verify tests fail before implementing features (TDD approach)
+- **Checkpoints**: Validate at each milestone before proceeding
+- **Commit frequency**: After each task or logical group of related tasks
+- **User Stories 3-6**: These are competition platform features (team management, CUDA environments, timeline tracking, rules enforcement) implemented by competition organizers, not participants. Our implementation focuses on US1 and US2 only.
+
+---
+
+## Total Task Count
+
+- **Phase 1 (Setup)**: 9 tasks
+- **Phase 2 (Foundational)**: 15 tasks
+- **Phase 3 (User Story 1)**: 25 tasks (9 tests + 16 implementation)
+- **Phase 4 (User Story 2)**: 19 tasks (5 tests + 14 implementation)
+- **Phase 5 (Polish)**: 12 tasks
+- **TOTAL**: 80 tasks
+
+**Parallel Opportunities**: 28 tasks marked [P] can run in parallel with other tasks
+
+**Test Coverage**: 14 test tasks ensure model correctness, inference reliability, and submission compliance
+
+**MVP Scope**: Phases 1-4 (T001-T068) deliver a complete, competition-ready submission
