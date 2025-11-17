@@ -47,6 +47,9 @@ env/
 *.swo
 *~
 
+# Claude Code local settings
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db
@@ -60,3 +63,7 @@ htmlcov/
 *.log
 *.tmp
 *.bak
+
+# Submission files (generated during testing/inference)
+submission.csv
+*.csv
