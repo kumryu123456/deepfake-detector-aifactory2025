@@ -44,6 +44,29 @@ if [[ -z "$VIRTUAL_ENV" ]] && [[ -z "$CONDA_DEFAULT_ENV" ]]; then
 fi
 
 echo ""
+
+# Check if pip is available
+echo "Checking pip availability..."
+if command -v pip &> /dev/null; then
+    PIP_CMD="pip"
+    echo -e "${GREEN}✓${NC} pip found"
+elif python3 -m pip --version &> /dev/null; then
+    PIP_CMD="python3 -m pip"
+    echo -e "${GREEN}✓${NC} pip found (via python3 -m pip)"
+else
+    echo -e "${RED}✗${NC} pip not found"
+    echo ""
+    echo "Please install pip first:"
+    echo "  sudo apt update"
+    echo "  sudo apt install -y python3-pip python3-venv"
+    echo ""
+    echo "Or on other systems:"
+    echo "  curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py"
+    echo "  python3 get-pip.py"
+    exit 1
+fi
+
+echo ""
 echo "================================================================================"
 echo "STEP 1: Installing PyTorch with CUDA 11.8 support"
 echo "================================================================================"
@@ -52,7 +75,7 @@ echo "This will download ~2-3 GB of packages. It may take several minutes."
 echo ""
 
 # Install PyTorch with CUDA 11.8
-pip install torch==1.13.1+cu118 torchvision==0.14.1+cu118 \
+$PIP_CMD install torch==1.13.1+cu118 torchvision==0.14.1+cu118 \
     --extra-index-url https://download.pytorch.org/whl/cu118
 
 if [ $? -eq 0 ]; then
@@ -69,7 +92,7 @@ echo "==========================================================================
 echo ""
 
 # Install other dependencies
-pip install -r requirements.txt
+$PIP_CMD install -r requirements.txt
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓${NC} Dependencies installed successfully"
