@@ -2,12 +2,17 @@
   "permissions": {
     "allow": [
       "Bash(git commit:*)",
+      "Bash(git add:*)",
+      "Bash(git restore:*)",
       "SlashCommand(/speckit.tasks)",
       "Bash(.specify/scripts/bash/check-prerequisites.sh --json)",
       "WebSearch",
-      "Bash(git add:*)",
       "Bash(python -m py_compile:*)",
-      "Bash(python3 -m py_compile:*)"
+      "Bash(python3 -m py_compile:*)",
+      "Read(/mnt/c/Users/kumry/AppData/Local/Temp/**)",
+      "Bash(pip install:*)",
+      "Bash(python3 -m pip install:*)",
+      "Bash(PYTHONPATH=/mnt/c/Users/kumry/OneDrive/Desktop/4-2학기/고급인공신경망/src python3:*)"
     ],
     "deny": [],
     "ask": []
