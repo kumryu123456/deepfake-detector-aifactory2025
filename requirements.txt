@@ -1,6 +1,8 @@
-# Deep Learning Framework (CUDA 11.8 - competition requirement)
-torch==1.13.1+cu118
-torchvision==0.14.1+cu118
+# Deep Learning Framework (CUDA 11.8)
+# Note: Use latest version for local development
+# Competition environment (AI Factory) will use specific versions in task.ipynb
+torch==2.7.1+cu118
+torchvision==0.22.1+cu118
 
 # Model Architecture
 timm==0.9.12

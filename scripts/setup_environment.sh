@@ -74,8 +74,8 @@ echo ""
 echo "This will download ~2-3 GB of packages. It may take several minutes."
 echo ""
 
-# Install PyTorch with CUDA 11.8
-$PIP_CMD install torch==1.13.1+cu118 torchvision==0.14.1+cu118 \
+# Install PyTorch with CUDA 11.8 (latest version)
+$PIP_CMD install torch==2.7.1+cu118 torchvision==0.22.1+cu118 \
     --extra-index-url https://download.pytorch.org/whl/cu118
 
 if [ $? -eq 0 ]; then
