@@ -163,18 +163,20 @@ class CombinedLoss(nn.Module):
         f1_weight: float = 0.2,
         focal_gamma: float = 2.0,
         focal_alpha: float = 0.25,
+        class_weights: Optional[list] = None,
     ):
         """Initialize Combined Loss.
-        
+
         Args:
             ce_weight: Weight for Cross-Entropy loss
             focal_weight: Weight for Focal loss
             f1_weight: Weight for Soft F1 loss
             focal_gamma: Gamma parameter for Focal loss
             focal_alpha: Alpha parameter for Focal loss
+            class_weights: Class weights for handling imbalance [weight_real, weight_fake]
         """
         super().__init__()
-        
+
         # Validate weights sum to 1.0 (optional, for interpretability)
         total_weight = ce_weight + focal_weight + f1_weight
         if abs(total_weight - 1.0) > 0.01:
@@ -183,13 +185,18 @@ class CombinedLoss(nn.Module):
                 f"Loss weights sum to {total_weight:.3f}, not 1.0. "
                 "Consider normalizing for better interpretability."
             )
-        
+
         self.ce_weight = ce_weight
         self.focal_weight = focal_weight
         self.f1_weight = f1_weight
-        
+
+        # Convert class weights to tensor if provided
+        weight_tensor = None
+        if class_weights is not None:
+            weight_tensor = torch.tensor(class_weights, dtype=torch.float32)
+
         # Initialize loss functions
-        self.ce_loss = nn.CrossEntropyLoss()
+        self.ce_loss = nn.CrossEntropyLoss(weight=weight_tensor)
         self.focal_loss = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
         self.f1_loss = SoftF1Loss()
     

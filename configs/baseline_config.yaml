@@ -52,6 +52,9 @@ loss:
     cross_entropy: 0.5
     focal: 0.3
     soft_f1: 0.2
+  # Class weights to handle imbalance (Real: 1090, Fake: 416 in train)
+  # Real: 0.691, Fake: 1.811 (inverse frequency weighting)
+  class_weights: [0.691, 1.811]
   focal:
     gamma: 2.0
     alpha: 0.25

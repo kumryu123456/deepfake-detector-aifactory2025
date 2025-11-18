@@ -254,10 +254,10 @@ class FaceDetector:
         margin_h = int(face_h * self.margin_ratio)
 
         # Expand box with margin (ensure integers)
-        x1_margin = int(max(0, x1 - margin_w))
-        y1_margin = int(max(0, y1 - margin_h))
-        x2_margin = int(min(w, x2 + margin_w))
-        y2_margin = int(min(h, y2 + margin_h))
+        x1_margin = max(0, x1 - margin_w)
+        y1_margin = max(0, y1 - margin_h)
+        x2_margin = min(w, x2 + margin_w)
+        y2_margin = min(h, y2 + margin_h)
 
         # Crop
         face_crop = image[y1_margin:y2_margin, x1_margin:x2_margin]

@@ -231,12 +231,16 @@ class Trainer:
             focal_gamma = focal_config.get("gamma", 2.0)
             focal_alpha = focal_config.get("alpha", 0.25)
 
+            # Class weights for imbalance handling
+            class_weights = loss_config.get("class_weights", None)
+
             criterion = CombinedLoss(
                 ce_weight=ce_weight,
                 focal_weight=focal_weight,
                 f1_weight=f1_weight,
                 focal_gamma=focal_gamma,
                 focal_alpha=focal_alpha,
+                class_weights=class_weights,
             )
         else:
             criterion = create_loss_function(loss_type)
