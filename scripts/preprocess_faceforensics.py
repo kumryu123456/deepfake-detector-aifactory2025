@@ -21,8 +21,9 @@ import argparse
 import sys
 from pathlib import Path
 from typing import List, Tuple
-import shutil
+import logging
 import random
+import traceback
 
 # Add src to path
 src_path = Path(__file__).parent.parent / "src"
@@ -74,12 +75,6 @@ def parse_args():
         type=int,
         default=None,
         help="Maximum videos to process (for testing)"
-    )
-    parser.add_argument(
-        "--num-workers",
-        type=int,
-        default=1,
-        help="Number of parallel workers (not implemented yet)"
     )
     parser.add_argument(
         "--device",
@@ -183,23 +178,62 @@ def process_video(
                 cv2.cvtColor(face, cv2.COLOR_RGB2BGR)
             )
             if not success:
-                error_msg = (
-                    f"Failed to write frame {i} for video '{video_path.name}' "
-                    f"to {output_path}"
+                logging.warning(
+                    "Failed to write frame %s for video '%s' to %s",
+                    i,
+                    video_path.name,
+                    output_path
                 )
-                print(error_msg)
-                raise RuntimeError(error_msg)
+                continue
             faces_extracted += 1
 
         return faces_extracted
 
-    except Exception as e:
-        print(f"Error processing {video_path.name}: {e}")
-        return 0
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception:
+        logging.error(
+            "Error processing %s:\n%s",
+            video_path.name,
+            traceback.format_exc()
+        )
+        return -1
+
+
+def process_split(
+    split_title: str,
+    tqdm_desc: str,
+    videos: List[Tuple[Path, str]],
+    output_dir: Path,
+    face_detector: FaceDetector,
+    video_processor: VideoProcessor,
+    max_frames: int
+) -> int:
+    """Process a list of videos belonging to the same dataset split."""
+    print("\n" + "=" * 80)
+    print(split_title)
+    print("=" * 80)
+
+    total_faces = 0
+    for video_path, label in tqdm(videos, desc=tqdm_desc):
+        faces = process_video(
+            video_path,
+            label,
+            output_dir,
+            face_detector,
+            video_processor,
+            max_frames,
+        )
+        total_faces += max(faces, 0)
+    return total_faces
 
 
 def main():
     args = parse_args()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s"
+    )
 
     print("=" * 80)
     print("FACEFORENSICS++ DATA PREPROCESSING")
@@ -251,8 +285,13 @@ def main():
 
     # Limit for testing
     if args.max_videos:
-        real_videos = real_videos[:args.max_videos // 2]
-        fake_videos = fake_videos[:args.max_videos // 2]
+        # Favor real videos when args.max_videos is odd to reduce class imbalance and keep evaluation/training closer to real distribution.
+        half = args.max_videos // 2
+        remainder = args.max_videos % 2
+        real_limit = min(len(real_videos), half + remainder)
+        fake_limit = min(len(fake_videos), half)
+        real_videos = real_videos[:real_limit]
+        fake_videos = fake_videos[:fake_limit]
         print(f"\nLimited to {args.max_videos} videos for testing")
 
     # Shuffle and split
@@ -282,49 +321,23 @@ def main():
         "val_fake": 0
     }
 
-    # Process train real
-    print("\n" + "=" * 80)
-    print("PROCESSING TRAIN REAL")
-    print("=" * 80)
-    for video_path, label in tqdm(real_train, desc="Train Real"):
-        n_faces = process_video(
-            video_path, label, train_real_dir,
-            face_detector, video_processor, args.max_frames
-        )
-        stats["train_real"] += n_faces
+    split_configs = [
+        ("PROCESSING TRAIN REAL", "Train Real", real_train, train_real_dir, "train_real"),
+        ("PROCESSING TRAIN FAKE", "Train Fake", fake_train, train_fake_dir, "train_fake"),
+        ("PROCESSING VAL REAL", "Val Real", real_val, val_real_dir, "val_real"),
+        ("PROCESSING VAL FAKE", "Val Fake", fake_val, val_fake_dir, "val_fake"),
+    ]
 
-    # Process train fake
-    print("\n" + "=" * 80)
-    print("PROCESSING TRAIN FAKE")
-    print("=" * 80)
-    for video_path, label in tqdm(fake_train, desc="Train Fake"):
-        n_faces = process_video(
-            video_path, label, train_fake_dir,
-            face_detector, video_processor, args.max_frames
+    for title, desc, videos, out_dir, stats_key in split_configs:
+        stats[stats_key] += process_split(
+            split_title=title,
+            tqdm_desc=desc,
+            videos=videos,
+            output_dir=out_dir,
+            face_detector=face_detector,
+            video_processor=video_processor,
+            max_frames=args.max_frames,
         )
-        stats["train_fake"] += n_faces
-
-    # Process val real
-    print("\n" + "=" * 80)
-    print("PROCESSING VAL REAL")
-    print("=" * 80)
-    for video_path, label in tqdm(real_val, desc="Val Real"):
-        n_faces = process_video(
-            video_path, label, val_real_dir,
-            face_detector, video_processor, args.max_frames
-        )
-        stats["val_real"] += n_faces
-
-    # Process val fake
-    print("\n" + "=" * 80)
-    print("PROCESSING VAL FAKE")
-    print("=" * 80)
-    for video_path, label in tqdm(fake_val, desc="Val Fake"):
-        n_faces = process_video(
-            video_path, label, val_fake_dir,
-            face_detector, video_processor, args.max_frames
-        )
-        stats["val_fake"] += n_faces
 
     # Print final statistics
     print("\n" + "=" * 80)

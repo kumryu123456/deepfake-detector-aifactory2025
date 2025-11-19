@@ -8,7 +8,7 @@ This module implements loss functions optimized for Macro F1-score:
 Reference: research.md lines 262-321 for implementation details
 """
 
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -163,7 +163,7 @@ class CombinedLoss(nn.Module):
         f1_weight: float = 0.2,
         focal_gamma: float = 2.0,
         focal_alpha: float = 0.25,
-        class_weights: Optional[list] = None,
+        class_weights: Optional[List[float]] = None,
     ):
         """Initialize Combined Loss.
 
@@ -190,13 +190,11 @@ class CombinedLoss(nn.Module):
         self.focal_weight = focal_weight
         self.f1_weight = f1_weight
 
-        # Convert class weights to tensor if provided
-        weight_tensor = None
-        if class_weights is not None:
-            weight_tensor = torch.tensor(class_weights, dtype=torch.float32)
+        # Store class weights and defer tensor creation until forward for device safety
+        self.class_weights = class_weights
 
-        # Initialize loss functions
-        self.ce_loss = nn.CrossEntropyLoss(weight=weight_tensor)
+        # Initialize loss functions (class weights applied during forward pass)
+        self.ce_loss = nn.CrossEntropyLoss()
         self.focal_loss = FocalLoss(alpha=focal_alpha, gamma=focal_gamma)
         self.f1_loss = SoftF1Loss()
     
@@ -204,7 +202,7 @@ class CombinedLoss(nn.Module):
         self,
         logits: torch.Tensor,
         targets: torch.Tensor,
-    ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
+    ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """Compute combined loss.
         
         Args:
@@ -214,6 +212,17 @@ class CombinedLoss(nn.Module):
         Returns:
             Tuple of (total_loss, loss_dict) where loss_dict contains individual losses
         """
+        # Ensure class weights (if any) are on same device as inputs
+        if self.class_weights is not None:
+            weight_tensor = torch.tensor(
+                self.class_weights,
+                dtype=torch.float32,
+                device=logits.device
+            )
+            self.ce_loss.weight = weight_tensor
+        else:
+            self.ce_loss.weight = None
+
         # Compute individual losses
         ce = self.ce_loss(logits, targets)
         focal = self.focal_loss(logits, targets)

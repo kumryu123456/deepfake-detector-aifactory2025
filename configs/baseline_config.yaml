@@ -24,7 +24,7 @@ model:
 training:
   epochs: 100
   batch_size: 32
-  num_workers: 4  # Reduced for baseline
+  num_workers: 0  # Disabled multiprocessing for WSL2 CUDA compatibility
   pin_memory: true
   mixed_precision: true  # FP16 for speed
   gradient_clip: 1.0
@@ -52,9 +52,9 @@ loss:
     cross_entropy: 0.5
     focal: 0.3
     soft_f1: 0.2
-  # Class weights to handle imbalance (Real: 1090, Fake: 416 in train)
-  # Real: 0.691, Fake: 1.811 (inverse frequency weighting)
-  class_weights: [0.691, 1.811]
+  # Class weights for balanced dataset (Real: 2800, Fake: 2800 in train)
+  # Perfect 1:1 balance - equal weights
+  class_weights: [1.0, 1.0]
   focal:
     gamma: 2.0
     alpha: 0.25

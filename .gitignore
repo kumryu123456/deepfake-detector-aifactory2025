@@ -67,3 +67,5 @@ htmlcov/
 # Submission files (generated during testing/inference)
 submission.csv
 *.csv
+output_folder/
+submission/

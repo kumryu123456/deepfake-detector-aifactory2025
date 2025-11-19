@@ -386,10 +386,12 @@ def main():
 
     # Log model info
     from models import count_parameters
-    total_params, trainable_params = count_parameters(model)
+    param_counts = count_parameters(model)
+    total_params = sum(param_counts.values())
     logger.info(f"Model parameters:")
     logger.info(f"  Total: {total_params:,}")
-    logger.info(f"  Trainable: {trainable_params:,}")
+    for component, count in param_counts.items():
+        logger.info(f"  {component}: {count:,}")
 
     # Create trainer
     logger.info("\nInitializing trainer...")
