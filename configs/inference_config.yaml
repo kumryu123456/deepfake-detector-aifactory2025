@@ -1,0 +1,67 @@
+# Inference Configuration
+# Competition Submission Settings
+
+inference:
+  batch_size: 64  # Larger batch for faster inference
+  num_workers: 8
+  device: "cuda"  # Will auto-fallback to cpu if unavailable
+  mixed_precision: true  # FP16 for 2x speedup
+  
+# Model loading
+model:
+  checkpoint_path: "checkpoints/hybrid_finetuned.pth"
+  config_path: "configs/model_config.yaml"
+
+# Input data
+data:
+  test_dir: "./data"  # Competition test data directory
+  supported_formats:
+    images: [".jpg", ".png", ".JPG", ".PNG"]
+    videos: [".mp4", ".MP4"]
+
+# Video processing
+video:
+  target_frames: 16
+  sampling_method: "uniform"
+  min_frames: 8
+  max_frames: 32
+  aggregation_method: "average_logits"
+  confidence_threshold: null  # Set to enable early stopping (e.g., 0.95)
+
+# Face detection
+face_detection:
+  detector: "retinaface"  # Options: retinaface, mtcnn
+  confidence_threshold: 0.9
+  margin_ratio: 0.3
+  fallback_on_no_face: true  # Process whole image if no face detected
+
+# Output
+output:
+  csv_path: "submission.csv"
+  validate: true  # Run validation checks on output CSV
+  
+# Performance optimization
+optimization:
+  # OOM fallback strategy
+  oom_fallback:
+    enabled: true
+    steps:
+      - reduce_batch_size: 32
+      - reduce_batch_size: 16
+      - reduce_video_frames: 8
+      - enable_cpu_fallback: true
+  
+  # Memory management
+  memory:
+    empty_cache_frequency: 100  # Clear GPU cache every N batches
+    max_memory_usage_gb: 20  # Alert if exceeds (for L4 GPU: 24GB)
+  
+  # Timeout
+  max_inference_time_hours: 2  # Safety margin (competition limit: 3 hours)
+
+# Logging
+logging:
+  level: "INFO"
+  log_file: "logs/inference.log"
+  print_progress: true
+  progress_interval: 10  # Print progress every N files

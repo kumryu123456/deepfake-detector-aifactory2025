@@ -1,0 +1,104 @@
+# Training Configuration
+# Deepfake Detection Model Training
+
+training:
+  epochs: 100
+  batch_size: 32
+  num_workers: 8
+  pin_memory: true
+  mixed_precision: true  # FP16 training for speed
+  
+optimizer:
+  type: "adamw"
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+
+scheduler:
+  type: "cosine_annealing"
+  T_max: 100  # Same as epochs
+  eta_min: 1.0e-6
+  warmup_epochs: 5
+  warmup_start_lr: 1.0e-5
+
+# Loss function configuration
+loss:
+  type: "combined"
+  weights:
+    cross_entropy: 0.5
+    focal: 0.3
+    soft_f1: 0.2
+  focal:
+    gamma: 2.0
+    alpha: 0.25
+  # Fine-tuning schedule (increase F1 weight in later epochs)
+  finetuning:
+    enabled: true
+    start_epoch: 80
+    weights:
+      cross_entropy: 0.4
+      focal: 0.2
+      soft_f1: 0.4
+
+# Data augmentation
+augmentation:
+  enabled: true
+  horizontal_flip: 0.5
+  rotation: 15  # degrees
+  color_jitter:
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+  jpeg_compression:
+    quality_lower: 60
+    quality_upper: 100
+    p: 0.5
+  gaussian_noise:
+    var_limit: [0.01, 0.05]
+    p: 0.1
+  gaussian_blur:
+    blur_limit: [3, 7]
+    p: 0.05
+
+# Dataset configuration
+dataset:
+  datasets: ["faceforensics", "dfdc", "celebdf"]
+  sampling_strategy: "balanced"  # Equal sampling from each dataset
+  train_split: 0.8
+  val_split: 0.2
+  random_seed: 42
+
+# Early stopping
+early_stopping:
+  enabled: true
+  patience: 15
+  metric: "macro_f1"  # Monitor Macro F1-score (not accuracy)
+  mode: "max"
+
+# Checkpointing
+checkpoint:
+  save_dir: "checkpoints"
+  save_best_only: true
+  metric: "macro_f1"
+  mode: "max"
+  save_frequency: 5  # Save every 5 epochs as backup
+
+# Logging
+logging:
+  log_dir: "logs"
+  tensorboard: true
+  log_interval: 100  # Log every 100 batches
+  metrics:
+    - "loss"
+    - "accuracy"
+    - "macro_f1"
+    - "precision_real"
+    - "precision_fake"
+    - "recall_real"
+    - "recall_fake"
+
+# Reproducibility
+seed: 42
+deterministic: true

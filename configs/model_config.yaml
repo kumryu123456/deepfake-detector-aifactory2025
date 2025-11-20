@@ -1,0 +1,54 @@
+# Model Architecture Configuration
+# Deepfake Detection - Dual-Branch Hybrid Model
+
+model:
+  name: "deepfake_detector"
+  type: "dual_branch"
+  num_classes: 2  # Binary classification: Real (0), Fake (1)
+  
+spatial_branch:
+  backbone: "efficientnet_b4"
+  pretrained: true
+  pretrained_source: "imagenet"
+  transformer:
+    num_layers: 4
+    num_heads: 8
+    hidden_dim: 512
+    mlp_dim: 2048
+    dropout: 0.1
+  output_dim: 512
+  dropout: 0.3
+
+frequency_branch:
+  method: "fft"  # Options: fft, dct
+  components: ["amplitude", "phase"]
+  input_size: [224, 224]
+  conv_channels: [64, 128, 256]
+  output_dim: 512
+  dropout: 0.2
+
+fusion_layer:
+  input_dim: 1024  # 512 (spatial) + 512 (frequency)
+  fusion_strategy: "hierarchical"  # Options: late_fusion, hierarchical
+  attention_heads: 4
+  attention_dim: 256
+  output_dim: 512
+  dropout: 0.5
+
+classifier:
+  hidden_dims: [256]
+  dropout: 0.5
+  activation: "relu"
+
+# Input preprocessing
+input:
+  image_size: [224, 224]
+  normalization:
+    mean: [0.485, 0.456, 0.406]  # ImageNet stats
+    std: [0.229, 0.224, 0.225]
+  
+# Video processing
+video:
+  target_frames: 16
+  sampling_method: "uniform"  # Options: uniform, random, adaptive
+  aggregation_method: "average_logits"  # Options: average_logits, max_confidence, majority_vote

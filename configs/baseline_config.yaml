@@ -1,0 +1,181 @@
+# Baseline Training Configuration
+# Simplified configuration for quick baseline model training
+# Uses single dataset (FaceForensics++) for faster iteration
+
+# Model architecture
+model:
+  type: "deepfake_detector"
+  spatial_branch:
+    backbone: "efficientnet_b4"
+    pretrained: true
+    num_transformer_layers: 4
+    num_heads: 8
+    dropout: 0.1
+  frequency_branch:
+    enabled: true  # Can set to false for faster baseline
+    num_conv_layers: 3
+    dropout: 0.1
+  fusion:
+    attention_heads: 8
+    dropout: 0.1
+  num_classes: 2
+
+# Training configuration
+training:
+  epochs: 100
+  batch_size: 32
+  num_workers: 0  # Disabled multiprocessing for WSL2 CUDA compatibility
+  pin_memory: true
+  mixed_precision: true  # FP16 for speed
+  gradient_clip: 1.0
+
+# Optimizer configuration
+optimizer:
+  type: "adamw"
+  learning_rate: 1.0e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  eps: 1.0e-8
+
+# Learning rate scheduler
+scheduler:
+  type: "cosine_annealing"
+  T_max: 100  # Same as epochs
+  eta_min: 1.0e-6
+  warmup_epochs: 5
+  warmup_start_lr: 1.0e-5
+
+# Loss function configuration
+loss:
+  type: "combined"
+  weights:
+    cross_entropy: 0.5
+    focal: 0.3
+    soft_f1: 0.2
+  # Class weights for balanced dataset (Real: 2800, Fake: 2800 in train)
+  # Perfect 1:1 balance - equal weights
+  class_weights: [1.0, 1.0]
+  focal:
+    gamma: 2.0
+    alpha: 0.25
+  # Fine-tuning schedule disabled for baseline
+  finetuning:
+    enabled: false
+
+# Data augmentation (moderate for baseline)
+augmentation:
+  enabled: true
+  horizontal_flip: 0.5
+  rotation: 10  # Reduced from 15
+  color_jitter:
+    brightness: 0.15
+    contrast: 0.15
+    saturation: 0.15
+    hue: 0.05
+  jpeg_compression:
+    quality_lower: 70  # Less aggressive
+    quality_upper: 100
+    p: 0.3
+  gaussian_noise:
+    var_limit: [0.01, 0.03]
+    p: 0.05
+  gaussian_blur:
+    blur_limit: [3, 5]
+    p: 0.03
+
+# Dataset configuration - BASELINE: Single dataset
+dataset:
+  # For baseline, use FaceForensics++ only
+  # Paths should be updated based on your data location
+  train_data:
+    - type: "faceforensics"
+      path: "data/faceforensics/processed/train"
+      real_path: "data/faceforensics/processed/train/real"
+      fake_path: "data/faceforensics/processed/train/fake"
+
+  val_data:
+    - type: "faceforensics"
+      path: "data/faceforensics/processed/val"
+      real_path: "data/faceforensics/processed/val/real"
+      fake_path: "data/faceforensics/processed/val/fake"
+
+  sampling_strategy: "balanced"
+  class_balance: true  # Balance Real/Fake classes
+  random_seed: 42
+
+  # Image preprocessing
+  image_size: 224
+  normalize:
+    mean: [0.485, 0.456, 0.406]  # ImageNet stats
+    std: [0.229, 0.224, 0.225]
+
+  # Video processing (if videos in dataset)
+  video:
+    enabled: true
+    num_frames: 16  # Frames to extract per video
+    sampling_strategy: "uniform"
+
+# Early stopping
+early_stopping:
+  enabled: true
+  patience: 15
+  metric: "macro_f1"  # Target metric for competition
+  mode: "max"
+  min_delta: 0.001  # Minimum improvement to count as progress
+
+# Checkpointing
+checkpoint:
+  save_dir: "checkpoints/baseline"
+  save_best_only: true
+  metric: "macro_f1"
+  mode: "max"
+  save_frequency: 10  # Save every 10 epochs as backup
+  keep_last_n: 3  # Keep last 3 checkpoints
+
+# Logging
+logging:
+  log_dir: "logs/baseline"
+  experiment_name: "baseline_efficientnet_b4"
+  tensorboard: true
+  log_interval: 50  # Log every 50 batches
+  log_images: true  # Log sample images
+  num_images_to_log: 8
+  metrics:
+    - "loss"
+    - "accuracy"
+    - "macro_f1"
+    - "f1_real"
+    - "f1_fake"
+    - "precision_real"
+    - "precision_fake"
+    - "recall_real"
+    - "recall_fake"
+
+# Validation configuration
+validation:
+  frequency: 1  # Validate every epoch
+  compute_metrics: true
+  save_predictions: false  # Set to true for analysis
+
+# Reproducibility
+seed: 42
+deterministic: true
+cudnn_benchmark: false  # For reproducibility
+
+# Device configuration
+device:
+  type: "cuda"  # cuda or cpu
+  gpu_ids: [0]  # List of GPU IDs to use
+
+# Memory optimization
+memory:
+  gradient_checkpointing: false  # Enable if OOM
+  empty_cache_frequency: 10  # Clear cache every N batches
+
+# Baseline-specific notes
+# This configuration is designed for:
+# 1. Quick iteration and validation of training pipeline
+# 2. Single dataset (FaceForensics++) to reduce complexity
+# 3. Moderate augmentation to avoid overfitting
+# 4. Target: >85% accuracy and >80% Macro F1 on FF++ test set
+# 5. Once baseline works, move to hybrid_config.yaml for full training
